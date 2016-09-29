@@ -1,0 +1,6 @@
+111c111,113
+<     tb.Wait()
+---
+>     time.sleep(4)
+>     print "done sleep"
+>     tb.stop()

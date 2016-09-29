@@ -1,0 +1,4 @@
+33c33
+<         self.samp_freq = samp_freq = 915E6
+---
+>         self.samp_freq = samp_freq = 916E6
