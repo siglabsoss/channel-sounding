@@ -30,19 +30,11 @@ if __name__ == '__main__':
     print "first", jout
     asciiPrintString(jout)
 
-    jak.write('h')
-    time.sleep(0.5)
-    jak.write('e')
-    time.sleep(0.5)
-    jak.write('l')
-    time.sleep(0.5)
-    jak.write('p')
-    time.sleep(0.5)
-    jak.write('\n')
+    jak.write('help?\n')
 
     jout = readFor(jak, 2)
-    print jout
-    asciiPrintString(jout)
+    print repr(jout)
+    #asciiPrintString(jout)
 
 
     jak.close()
