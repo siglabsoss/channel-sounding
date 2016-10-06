@@ -17,6 +17,22 @@ def asciiPrintString(s):
         print ord(c)
 
 
+def readFor(ser, seconds):
+
+    out = ''
+    st = time.time()
+    ct = 0
+    while (time.time() - st) < seconds:
+        #print st
+        #time.sleep(0.1)
+        wt = ser.inWaiting()
+        if wt > 0:
+            out += ser.read(wt)
+            ct += wt
+
+    print "read", ct, "chars"
+    return out
+
 
 def initSerial(pt, baud):
     # configure the serial connections (the parameters differs on the device you are connecting to)
