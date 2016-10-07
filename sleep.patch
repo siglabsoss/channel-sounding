@@ -1,6 +1,5 @@
-111c111,113
-<     tb.Wait()
+79c79,80
+<     raw_input('Press Enter to quit: ')
 ---
 >     time.sleep(4)
 >     print "done sleep"
->     tb.stop()
