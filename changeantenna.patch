@@ -1,0 +1,4 @@
+28c28
+<         self.rx_antenna = rx_antenna = "TX/RX"
+---
+>         self.rx_antenna = rx_antenna = "RX2"
