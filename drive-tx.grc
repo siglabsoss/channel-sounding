@@ -481,7 +481,7 @@
     </param>
     <param>
       <key>file</key>
-      <value>/home/odroid/sounding1024.raw</value>
+      <value>/home/odroid/channel-sounding/sounding1024.raw</value>
     </param>
     <param>
       <key>type</key>
