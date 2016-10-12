@@ -1,5 +1,0 @@
-79c79,80
-<     raw_input('Press Enter to quit: ')
----
->     time.sleep(2)
->     print "done sleep"

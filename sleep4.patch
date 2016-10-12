@@ -1,0 +1,8 @@
+97,100c97,98
+<     try:
+<         raw_input('Press Enter to quit: ')
+<     except EOFError:
+<         pass
+---
+>     time.sleep(4)
+>     print "quitting gnuradio"
