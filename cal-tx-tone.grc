@@ -304,7 +304,7 @@
     </param>
     <param>
       <key>freq</key>
-      <value>1e6</value>
+      <value>1.625e6</value>
     </param>
     <param>
       <key>_coordinate</key>
@@ -1031,7 +1031,7 @@
     </param>
     <param>
       <key>clock_source0</key>
-      <value>internal</value>
+      <value>external</value>
     </param>
     <param>
       <key>sd_spec0</key>
