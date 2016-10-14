@@ -614,7 +614,7 @@
     </param>
     <param>
       <key>file</key>
-      <value>/home/ameya/channel-sounding/sounding1024.raw</value>
+      <value>sounding1024.raw</value>
     </param>
     <param>
       <key>_coordinate</key>
