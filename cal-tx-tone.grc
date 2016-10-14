@@ -46,7 +46,7 @@
     </param>
     <param>
       <key>id</key>
-      <value>drive_tx</value>
+      <value>cal_tx_tone</value>
     </param>
     <param>
       <key>max_nouts</key>
