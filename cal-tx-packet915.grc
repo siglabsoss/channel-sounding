@@ -277,7 +277,7 @@
     </param>
     <param>
       <key>value</key>
-      <value>1</value>
+      <value>0</value>
     </param>
   </block>
   <block>
@@ -704,7 +704,7 @@
     </param>
     <param>
       <key>const</key>
-      <value>16.72</value>
+      <value>16.72*(0.7079)</value>
     </param>
     <param>
       <key>affinity</key>
