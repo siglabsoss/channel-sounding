@@ -22,10 +22,81 @@
 ## Author: Ameya Patil <ameya@ameya>
 ## Created: 2016-10-13
 
-function [power_n_cal_db] = cal_proceedure (tone_file, noise_file, gain)
+#function [gain_error, psd_n_cal_db] = cal_proceedure (cal_file)
+
+%
+% This function is expecting a time series as follows:
+%
+% @@@@############################
+%
+% where @ is a recording of a 1uW CW tone and
+% # is a recording of just noise (resistor terminated receiver)
+%
+% The first @@@@ period should be 1.000 seconds
+% Each subsequent period should be 1.000 seconds and have gain_steps gain
+%
 
 % load Siglabs Utilities
 o_util;
+
+% cal file sample rate
+sps = 6.25e6;
+
+% samples per test sequence
+spts = 3.125e6;
+
+% cal single tone power (dBm)
+cstp = -50;
+
+% start of time series zero pading index (to remove glitches)
+% begin time series at 100ms
+stszpi = sps*0.100 + 1;
+
+% end of time series zero padding index (to remove glitches)
+% end time series at 900ms
+etszpi = sps*0.400;
+
+% calibration channel start (Hz)
+ccs = 1620e3;
+
+% calibration channel end (Hz)
+cce = 1630e3;
+
+% noise channel start (Hz)
+ncs = 625e3;
+
+% noise channel end (Hz)
+nce = 2500e3;
+
+% gain steps dB (as recorded)
+sdr_gain_steps = 0:31;
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% OPEN FILE AND PARSE
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% recording of 1uW single tone at 1 MHz with SDR gain = 0 (0 to 31.5)
+%cal_recording = rawfile_to_complex(cal_file);
+
+% separate calibration tone recordings (first 32 data sets)
+gain_recording = cal_recording(1:spts*32);
+gain_recording = reshape(gain_recording, spts, 32);
+
+% chop 100ms off ends to remove switching and startup transients
+gain_recording = gain_recording(stszpi:etszpi, :);
+
+% separate noise floor recordings
+% (subsequent 32 seconds, less 1000 samples to avoid EOF issues)
+noise_recording = cal_recording(spts*32+1:spts*64-1000);
+noise_recording(end+1:end+1000) = 0;
+noise_recording = reshape(noise_recording, spts, 32);
+
+% chop 100ms off ends to remove switching and startup transients
+noise_recording = noise_recording(stszpi:etszpi,:);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -33,19 +104,14 @@ o_util;
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% recording of 1uW single tone at 1 MHz with SDR gain = 0 (0 to 31.5)
-tone_recording = rawfile_to_complex(tone_file);
 
-% compute channel power
-% note that we're using 30% channel bandwidth to compute
-% the energy of the tone... this is a sufficient approximation
-[out, power, rms, psd_db] = cal_filter(tone_recording,6.25e6);
+for i = 1:32;
+   [out, power, rms, psd_db] = cal_filter(gain_recording(:,i),sps,ccs,cce);
 
-% compute channel power in dBm
-power_db = 10 * log10(power);
+    power_db = 10 * log10(power);
 
-% the gain error is the difference between 1uW and the channel power
-error = power_db - (-30);
+    meas_gain_error_db(i) = power_db - cstp;
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -53,16 +119,63 @@ error = power_db - (-30);
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% recording of noise with SDR gain = gain
-noise_record = rawfile_to_complex(noise_file);
+for i = 1:32;
+   [out, power, rms, psd_db] = cal_filter(noise_recording(:,i),sps,ncs,nce);
 
-% compute channel power
-% note that we're using 30% channel bandwidth
-[out_n, power_n, rms_n, psd_n_db] = cal_filter(noise_record,6.25e6);
+    psd_n_cal_db(i) = psd_db - meas_gain_error_db(i);
+end
 
-% compute calibrated PSD
-psd_n_cal_db = psd_n_db - error;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% CALCULATE FULL SCALE INPUT
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-disp(psd_n_cal_db);
+% generate dummy "full scale" input signal
+fs_recording = ones(spts,1);
+fs_recording = fs_recording(stszpi:etszpi,:);
 
-endfunction
+for i = 1:32;
+   [out, power, rms, psd_db] = cal_filter(fs_recording,sps,-1000,1000);
+
+   power_db = 10 * log10(power);
+   
+    fs_cal_db(i) = power_db - meas_gain_error_db(i);
+end
+
+
+figure;
+
+subplot(2,2,1);
+temp1 = cal_recording(1:100:end);
+temp1 = abs(temp1);
+templ = size(temp1, 1);
+tempp = 100/sps;
+tempx = (tempp:tempp:(tempp*templ))';
+plot(tempx, temp1);
+title('Siglabs Suitcase Receiver S/N 001');
+xlabel('time (s)');
+ylabel('calibration signal sequence (Volts)');
+
+subplot(2,2,2);
+plot(sdr_gain_steps, psd_n_cal_db);
+title('Siglabs Suitcase Receiver S/N 001');
+xlabel('SDR gain value (db)');
+ylabel('Noise Power Spectral Density (dBm/Hz)');
+
+subplot(2,2,3);
+plot(sdr_gain_steps, fs_cal_db);
+title('Siglabs Suitcase Receiver S/N 001');
+xlabel('SDR gain value (db)');
+ylabel('Full Scale Single Tone Input (dBm)');
+
+subplot(2,2,4);
+yint = meas_gain_error_db(1);
+expected_gain_error = sdr_gain_steps + yint;
+plot(sdr_gain_steps, [meas_gain_error_db; expected_gain_error]);
+title('Siglabs Suitcase Receiver S/N 001');
+xlabel('SDR gain value (db)');
+ylabel('Measured Gain Error (dB)');
+
+
+#endfunction

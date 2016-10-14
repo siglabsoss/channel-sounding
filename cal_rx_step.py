@@ -28,7 +28,7 @@ class cal_rx(gr.top_block):
         self.samp_rate = samp_rate = 1E8/16
         self.samp_freq = samp_freq = 2.45e9
         self.rx_antenna = rx_antenna = "RX2"
-        self.output_file = output_file = "/home/ameya/channel-sounding/joel_test_rx_2_stepped.raw"
+        self.output_file = output_file = "cal_rx_step.raw"
 
         ##################################################
         # Blocks
@@ -92,12 +92,26 @@ class cal_rx(gr.top_block):
 
 def main(top_block_cls=cal_rx, options=None):
 
+    raw_input("Connect 10nW(-50dBm) CW calibration source at 2,451,625.000 Hz and press Enter to continue...")
+
     tb = top_block_cls()
+
     tb.start()
     mygain = 0
-    for i in range(31):
+    for i in range(0,32):
         tb.uhd_usrp_source_0.set_gain(i, 0)
-        time.sleep(1)
+        time.sleep(0.5)
+    
+    tb.stop()
+    tb.wait()
+
+    raw_input("Turn off calibration source and terminate input with termination cap and press Enter to continue...")
+
+    tb.start()
+    mygain = 0
+    for i in range(0,32):
+        tb.uhd_usrp_source_0.set_gain(i, 0)
+        time.sleep(0.5)
     
     tb.stop()
     tb.wait()
