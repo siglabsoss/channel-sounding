@@ -28,7 +28,7 @@ class cal_rx(gr.top_block):
         self.samp_rate = samp_rate = 1E8/16
         self.samp_freq = samp_freq = 915E6
         self.rx_antenna = rx_antenna = "TX/RX"
-        self.output_file = output_file = "cal_rx_step.raw"
+        self.output_file = output_file = "cal_rx_step915.raw"
 
         ##################################################
         # Blocks
