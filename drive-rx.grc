@@ -105,7 +105,7 @@
     </param>
     <param>
       <key>value</key>
-      <value>"/mnt/usb1/file1.raw"</value>
+      <value>""</value>
     </param>
   </block>
   <block>

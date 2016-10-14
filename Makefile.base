@@ -40,5 +40,5 @@ drive_rx.py: drive-rx.grc
 #
 #
 clean:
-	rm -f drive_rx.py drive_tx915.py drive_tx24.py top_block.py drive_rx915.py drive_rx24.py *orig *pyc *_
+	rm -f drive_rx.py drive_tx915.py drive_tx24.py top_block.py drive_rx915.py drive_rx24.py *orig *pyc _*
 
