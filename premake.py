@@ -1,3 +1,5 @@
+from subprocess import call
+
 
 def make_hz_patch(name, hz):
     #base = '33c33\n<         self.samp_freq = samp_freq = 915E6\n---\n>         self.samp_freq = samp_freq = 916E6\n'
@@ -22,6 +24,8 @@ if __name__ == '__main__':
     	hz = eval(hzn)
         print hz
         print hzn
-        make_hz_patch(mkfname(hzn), hz)
+        # make_hz_patch(mkfname(hzn), hz)
+
+    call(['ls'])
     # jak = initSerial('/dev/ttyUSB0', 115200)
     # print jak
