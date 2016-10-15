@@ -8,7 +8,7 @@ import argparse
 
 class MakeWrap:
     makebasefn = 'Makefile.base'
-    outputs = []
+    outputs = {'t':[],'r':[]}
     # self.makebase
 
     def init(self, o):
@@ -20,7 +20,7 @@ class MakeWrap:
     def add_line(self, ln):
         self.makebase = self.makebase + ln
 
-    def add_target(self, filename, basefile, patches):
+    def add_target(self, txrx, filename, basefile, patches):
         self.add_line(filename + ': ' + basefile + '\n')
         self.add_line('\tcp ' + basefile + ' ' + filename + '\n')
         for p in patches:
@@ -28,33 +28,32 @@ class MakeWrap:
 
         self.add_line('\n\n')
 
-        self.outputs.append(filename)
-
-
-    def delme(self):
-        make_hz_patch(mkfname('905E6'), 905E6)  # write a patch to the filesystem
-        self.add_target('_rx_905E6.py', base_grc[0], [mkfname('905E6')])  # include it in make
+        self.outputs[txrx].append(filename)
 
     def finalize(self):
 
-        targets = ""
-        delim = ""
-        for t in self.outputs:
-            targets = targets + delim + t
-            delim = " "
+        types = ['r', 't']
 
-        self.add_line('runrx: ' + targets + '\n')
-        self.add_line('\tsudo ls > /dev/null\n')
-        for t in self.outputs:
-            self.add_line('\tsudo ./' + t + '\n')
+        for type in types:
+            targets = ""
+            delim = ""
+            for targ in self.outputs[type]:
+                targets = targets + delim + targ
+                delim = " "
 
-        self.add_line("\t@sudo touch " + self.output_folder + '/"`date`"\n')
-        self.add_line("\t@echo made these files\n")
-        self.add_line("\t@echo \n")
-        self.add_line("\tls -lsh " + self.output_folder + '\n')
+            self.add_line('run' + type + 'x: ' + targets + '\n')
+            self.add_line('\tsudo ls > /dev/null\n')
+            for targ in self.outputs[type]:
+                self.add_line('\tsudo ./' + targ + '\n')
 
-        self.add_line("\n.PHONY: runrx\n")
+            if type == 'r':
+                self.add_line("\t@sudo touch " + self.output_folder + '/"`date`"\n')
+                self.add_line("\t@echo made these files\n")
+                self.add_line("\t@echo \n")
+                self.add_line("\tls -lsh " + self.output_folder + '\n')
+            self.add_line('\n\n')
 
+        self.add_line("\n.PHONY: runrx runtx\n")
         self.add_line('\n\n')
 
 
@@ -161,13 +160,21 @@ if __name__ == '__main__':
                 full_output = output_folder + '/' + rawpath
                 make_filename_patch(pathpatchname, full_output)
 
+                # patch the gain
+                rxgain = 3
+                gainpatchname = mkgainpatchname(rxgain)
+                make_gain_patch(gainpatchname, rxgain)
+
                 # setup makefile
-                wrap.add_target(outfile, infile, [hzpatchname, pathpatchname, 'sleep4.patch'])  # let make know about it
+                wrap.add_target(type, outfile, infile, [hzpatchname, pathpatchname, gainpatchname, 'sleep4.patch'])  # let make know about it
             if type == 't':
+
+                # patch the gain
                 txgain = 5
                 gainpatchname = mkgainpatchname(txgain)
                 make_gain_patch(gainpatchname, txgain)
-                wrap.add_target(outfile, infile, [hzpatchname, gainpatchname, 'sleep2.patch'])  # let make know about it
+
+                wrap.add_target(type, outfile, infile, [hzpatchname, gainpatchname, 'sleep2.patch'])  # let make know about it
 
 
 
