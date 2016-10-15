@@ -1,6 +1,10 @@
 drive_rx.py: drive-rx.grc
 	grcc drive-rx.grc -d .
 
+drive_tx.py: drive-tx.grc
+	grcc drive-tx.grc -d .
+
+
 #drive_rx24.py: drive-rx.grc
 #	grcc drive-rx.grc -d .
 #	mv drive_rx.py drive_rx24.py

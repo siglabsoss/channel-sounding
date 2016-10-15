@@ -61,9 +61,19 @@ class MakeWrap:
 
         call(['rm', '-f', 'Makefile'])
         makefo = open('Makefile', 'w')
-        makefo.write("all : " + targets + '\n\n' + self.makebase)
+        makefo.write("all : drive_rx.py drive_tx.py " + targets + '\n\n' + self.makebase)
         makefo.close()
 
+
+def mkgainpatchname(gain):
+    return '_patch_gain_' + str(gain) + '.patch'
+
+def make_gain_patch(name, gain):
+    base = '27c27\n<         self.txrx_gain = txrx_gain = -1\n---\n>         self.txrx_gain = txrx_gain = '
+    final = base + str(gain) + '\n'
+    fo = open(name, 'w')
+    fo.write(final)
+    fo.close()
 
 def make_hz_patch(name, hz):
     #base = '33c33\n<         self.samp_freq = samp_freq = 915E6\n---\n>         self.samp_freq = samp_freq = 916E6\n'
@@ -81,7 +91,7 @@ def mkrawname(hzn, test_name):
     return test_name + '_' + hzn + '.raw'
 
 def mkpathpatchname(hzn, test_name):
-    return '_patch_output_' + test_name + '_' + hzn + '.path'
+    return '_patch_output_' + test_name + '_' + hzn + '.patch'
 
 def make_filename_patch(name, output):
     # base = '31c31\n<         self.output_file = output_file = ""\n---\n>         self.output_file = output_file = "/mnt/usb1/foldername/filename.raw"\n'
@@ -105,7 +115,7 @@ if __name__ == '__main__':
     output_base = '/mnt/usb1'
     test_name = vars(args)['name'][1]
 
-    print repr(test_name)
+    # print repr(test_name)
     output_folder = output_base + '/' + 'test_' + test_name
 
     call(['sudo', 'mkdir', '-p', output_folder])
@@ -117,9 +127,12 @@ if __name__ == '__main__':
     hzname = ['905E6', '910E6', '915E6', '920E6', '923E6']
     hzname = ['905E6', '910E6']
 
-    # types = ['r', 't']
-    types = ['r']
-    base_grc = ['drive_rx.py']
+    types = ['r', 't']
+
+
+
+    # types = ['r']
+    base_grc = ['drive_rx.py', 'drive_tx.py']
 
     wrap = MakeWrap()
 
@@ -141,16 +154,21 @@ if __name__ == '__main__':
             hzpatchname = mkfname(name)
             make_hz_patch(hzpatchname, hz)
 
-            # patch the path
-            rawpath = mkrawname(name, test_name)
-            pathpatchname = mkpathpatchname(name, test_name)
-            full_output = output_folder + '/' + rawpath
-            make_filename_patch(pathpatchname, full_output)
+            if type == 'r':
+                # patch the path
+                rawpath = mkrawname(name, test_name)
+                pathpatchname = mkpathpatchname(name, test_name)
+                full_output = output_folder + '/' + rawpath
+                make_filename_patch(pathpatchname, full_output)
 
-            # setup makefile
-            wrap.add_target(outfile, infile, [hzpatchname, pathpatchname, 'sleep4.patch'])  # let make know about it
+                # setup makefile
+                wrap.add_target(outfile, infile, [hzpatchname, pathpatchname, 'sleep4.patch'])  # let make know about it
+            if type == 't':
+                txgain = 5
+                gainpatchname = mkgainpatchname(txgain)
+                make_gain_patch(gainpatchname, txgain)
+                wrap.add_target(outfile, infile, [hzpatchname, gainpatchname, 'sleep2.patch'])  # let make know about it
 
-            print pathpatchname
 
 
     wrap.finalize()
