@@ -45,6 +45,8 @@ class MakeWrap:
             self.add_line('\tsudo ls > /dev/null\n')
             for targ in self.outputs[type]:
                 self.add_line('\tsudo ./' + targ + '\n')
+                if type == 't':
+                    self.add_line('\tsleep 1.3\n')
 
             if type == 'r':
                 self.add_line("\t@sudo touch " + self.output_folder + '/"`date`"\n')
