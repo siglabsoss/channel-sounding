@@ -1,0 +1,149 @@
+cd channel-sounding/
+o_util;
+ls
+stepped = rawfile_to_complex('cal_rx_stepped.raw');
+stepped = rawfile_to_complex('cal_rx_step.raw');
+ls
+plot(real(stepped(1:100)))
+plot(real(stepped(1:10000)))
+plot(real(stepped(1:end/6)))
+cal_proceedure
+cal_recording = stepped;'
+cal_recording = stepped;
+cal_proceedure
+cal915 = rawfile_to_complex('cal_rx_step915.raw');
+cal_recording = cal915;
+cal_proceedure
+10^(-3/10)
+10^(-3/10)
+11.5+13
+chan1 = rawfile_to_complex('/mnt/usb1/test_tryrun2/dryrun2_905E6.raw');
+chan1 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_905E6.raw');
+plot(real(chan1))
+close all
+plot(real(chan1))
+chan2 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_910E6.raw');
+plot(real(chan2))
+chan1 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_905E6.raw');
+chan2 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_910E6.raw');
+chan3 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_915E6.raw');
+plot(real(chan1))
+plot(real(chan2))
+plot(real(chan3))
+plot(real(chan1))
+plot(real(chan1))
+plot(real(chan2))
+plot(real(chan1))
+plot(real(chan1(1:10000))
+plot(real(chan1(1:10000))
+plot(real(chan2))
+plot(real(chan1))
+1.91E7
+plot(real(chan2))
+1.91E7 - 1.075E7
+8350000 / 6.25E6
+chan1 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_905E6.raw');
+chan2 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_910E6.raw');
+chan3 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_915E6.raw');
+plot(real(chan1))
+plot(real(chan2))
+plot(real(chan3))
+plot(real(chan1))
+plot(real(chan3))
+plot(real(chan2))
+plot(real(chan3))
+chan3 = rawfile_to_complex('/mnt/usb1/test_outside/dryrun2_915E6.raw');
+chan3 = rawfile_to_complex('/mnt/usb1/test_outside/outside_915E6.raw');
+plot(real(chan3))
+close all
+plot(real(chan3))
+chan1 = rawfile_to_complex('/mnt/usb1/test_outside/outside_905E6.raw');
+plot(real(chan1))
+close all
+chan1 = rawfile_to_complex('/mnt/usb1/test_outside/outside_905E6.raw');
+plot(real(chan1))
+chan1 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_905E6.raw');
+chan2 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_910E6.raw');
+plot(real(chan1))
+chan1 = rawfile_to_complex('/mnt/usb1/test_outside/outside_905E6.raw');
+plot(real(chan1))
+plot(abs(fftshift(fft(chan1))))
+tx = rawfile_to_complex('channel_1024.raw')
+ls
+tx = rawfile_to_complex('sounding1024.raw')
+xcr = xcorr(tx, chan1);
+pkg load signal;
+xcr = xcorr(tx, chan1);
+plot(abs(xcr))
+chan2 = rawfile_to_complex('/mnt/usb1/test_outside/outside_910E6.raw');
+xcr = xcorr(tx, chan2);
+plot(abs(xcr))
+chan2 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_910E6.raw');
+chan1 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_905E6.raw');
+xcr = xcorr(chan1, tx);
+close all
+plot(abs(xcr))
+xcr = xcorr(chan2, tx);
+plot(abs(xcr))
+chan1 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_905E6.raw');
+xcr = xcorr(chan1, tx);
+plot(abs(xcr))
+chan1 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_905E6.raw');
+xcr = xcorr(chan1, tx);
+plot(abs(xcr))
+plot(abs(xcr))
+[x,y,buttons] = ginput()
+[x,y,buttons] = ginput(1)
+[x,y,buttons] = ginput(1)
+clear all
+close all
+outsideclose_910E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_910E6.raw');
+outsideclose_920E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_920E6.raw');
+outsideclose_915E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_915E6.raw');
+outsideclose_923E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_923E6.raw');
+outsideclose_905E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_905E6.raw');
+dryrun2_910E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_910E6.raw');
+dryrun2_915E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_915E6.raw');
+dryrun2_920E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_920E6.raw');
+dryrun2_923E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_923E6.raw');
+dryrun2_905E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_905E6.raw');
+outsidefar_910E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_910E6.raw');
+outsidefar_923E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_923E6.raw');
+outsidefar_905E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_905E6.raw');
+outsidefar_920E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_920E6.raw');
+outsidefar_915E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_915E6.raw');
+outside_920E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_920E6.raw');
+outside_923E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_923E6.raw');
+outside_905E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_905E6.raw');
+outside_915E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_915E6.raw');
+outside_910E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_910E6.raw');
+o_util;
+outsideclose_910E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_910E6.raw');
+outsideclose_920E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_920E6.raw');
+outsideclose_915E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_915E6.raw');
+outsideclose_923E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_923E6.raw');
+outsideclose_905E6 = rawfile_to_complex('/mnt/usb1/test_outsideclose/outsideclose_905E6.raw');
+dryrun2_910E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_910E6.raw');
+dryrun2_915E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_915E6.raw');
+dryrun2_920E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_920E6.raw');
+dryrun2_923E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_923E6.raw');
+dryrun2_905E6 = rawfile_to_complex('/mnt/usb1/test_dryrun2/dryrun2_905E6.raw');
+outsidefar_910E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_910E6.raw');
+outsidefar_923E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_923E6.raw');
+outsidefar_905E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_905E6.raw');
+outsidefar_920E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_920E6.raw');
+outsidefar_915E6 = rawfile_to_complex('/mnt/usb1/test_outsidefar/outsidefar_915E6.raw');
+outside_920E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_920E6.raw');
+outside_923E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_923E6.raw');
+outside_905E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_905E6.raw');
+outside_915E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_915E6.raw');
+outside_910E6 = rawfile_to_complex('/mnt/usb1/test_outside/outside_910E6.raw');
+save -mat7-binary 'dryrun_data.mat' 'outsideclose_910E6', 'outsideclose_920E6', 'outsideclose_915E6', 'outsideclose_923E6', 'outsideclose_905E6', 'dryrun2_910E6', 'dryrun2_915E6', 'dryrun2_920E6', 'dryrun2_923E6', 'dryrun2_905E6', 'outsidefar_910E6', 'outsidefar_923E6', 'outsidefar_905E6', 'outsidefar_920E6', 'outsidefar_915E6', 'outside_920E6', 'outside_923E6', 'outside_905E6', 'outside_915E6', 'outside_910E6'
+pwd
+save('-mat7-binary' 'dryrun_data.mat', 'outsideclose_910E6', 'outsideclose_920E6', 'outsideclose_915E6', 'outsideclose_923E6', 'outsideclose_905E6', 'dryrun2_910E6', 'dryrun2_915E6', 'dryrun2_920E6', 'dryrun2_923E6', 'dryrun2_905E6', 'outsidefar_910E6', 'outsidefar_923E6', 'outsidefar_905E6', 'outsidefar_920E6', 'outsidefar_915E6', 'outside_920E6', 'outside_923E6', 'outside_905E6', 'outside_915E6', 'outside_910E6');
+save('-mat7-binary' 'dryrun_data.mat', 'outsideclose_910E6', 'outsideclose_920E6', 'outsideclose_915E6', 'outsideclose_923E6', 'outsideclose_905E6', 'dryrun2_910E6', 'dryrun2_915E6', 'dryrun2_920E6', 'dryrun2_923E6', 'dryrun2_905E6', 'outsidefar_910E6', 'outsidefar_923E6', 'outsidefar_905E6', 'outsidefar_920E6', 'outsidefar_915E6', 'outside_920E6', 'outside_923E6', 'outside_905E6', 'outside_915E6', 'outside_910E6')
+save('-mat7-binary', 'dryrun_data.mat', 'outsideclose_910E6', 'outsideclose_920E6', 'outsideclose_915E6', 'outsideclose_923E6', 'outsideclose_905E6', 'dryrun2_910E6', 'dryrun2_915E6', 'dryrun2_920E6', 'dryrun2_923E6', 'dryrun2_905E6', 'outsidefar_910E6', 'outsidefar_923E6', 'outsidefar_905E6', 'outsidefar_920E6', 'outsidefar_915E6', 'outside_920E6', 'outside_923E6', 'outside_905E6', 'outside_915E6', 'outside_910E6')
+tx = rawfile_to_complex('sounding1024.raw')
+save -mat7-binary 'tx.mat' 'tx'
+exit
+# Octave 4.0.0, Fri Oct 14 19:56:41 2016 PDT <ameya@ameya>
