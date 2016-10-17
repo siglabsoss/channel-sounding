@@ -5,5 +5,5 @@ drive_tx.py: drive-tx.grc
 	grcc drive-tx.grc -d .
 
 clean:
-	rm -f drive_rx.py drive_tx915.py drive_tx24.py top_block.py drive_rx915.py drive_rx24.py *orig *pyc _*
+	rm -f drive_rx.py drive_tx.py top_block.py *orig *pyc _*
 
