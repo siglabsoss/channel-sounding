@@ -21,7 +21,7 @@ class MakeWrap:
         self.makebase = self.makebase + ln
 
     def add_target(self, txrx, filename, basefile, patches):
-        self.add_line(filename + ': ' + basefile + '\n')
+        self.add_line(filename + ': ' + basefile + ' _premake_run\n')
         self.add_line('\tcp ' + basefile + ' ' + filename + '\n')
         for p in patches:
             self.add_line('\tpatch ' + filename + ' < ' + p + '\n')
@@ -34,12 +34,15 @@ class MakeWrap:
 
         types = ['r', 't']
 
+        alltargets = ""
+
         for type in types:
             targets = ""
-            delim = ""
+            # delim = ""
             for targ in self.outputs[type]:
-                targets = targets + delim + targ
-                delim = " "
+                targets = targets + " " + targ + " "
+                alltargets = alltargets + " " + targ + " "
+                # delim = " "
 
             self.add_line('run' + type + 'x: ' + targets + '\n')
             self.add_line('\tsudo ls > /dev/null\n')
@@ -62,7 +65,7 @@ class MakeWrap:
 
         call(['rm', '-f', 'Makefile'])
         makefo = open('Makefile', 'w')
-        makefo.write("all : drive_rx.py drive_tx.py " + targets + '\n\n' + self.makebase)
+        makefo.write("all : drive_rx.py drive_tx.py " + alltargets + '\n\n' + self.makebase)
         makefo.close()
 
 
@@ -120,6 +123,9 @@ if __name__ == '__main__':
     output_folder = output_base + '/' + 'test_' + test_name
 
     call(['sudo', 'mkdir', '-p', output_folder])
+
+    # this file lets make know if premake was run since targets were last made
+    call(['touch', '_premake_run'])
 
     
     # First step, copy the makefile over
