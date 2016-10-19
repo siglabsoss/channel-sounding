@@ -32,7 +32,7 @@ if __name__ == '__main__':
         commands[i] = './' + commands[i]
 
 
-    target_time = 7.5
+    target_time = 65
 
     runs = []
     for com in commands:

@@ -167,7 +167,7 @@ if __name__ == '__main__':
                 make_hz_patch(hzpatchname, hz)
 
                 if type == 'r':
-                    patch_list = [hzpatchname, 'sleep4.patch']
+                    patch_list = [hzpatchname, 'sleep62.patch']
 
                     # patch the path
                     rawpath = mkrawname(name, test_name)
@@ -195,7 +195,7 @@ if __name__ == '__main__':
                     gainpatchname = mkgainpatchname(txgain)
                     make_gain_patch(gainpatchname, txgain)
 
-                    wrap.add_target(type, outfile, infile, [hzpatchname, gainpatchname, 'sleep2.patch'])  # let make know about it
+                    wrap.add_target(type, outfile, infile, [hzpatchname, gainpatchname, 'sleep60.patch'])  # let make know about it
 
 
 
