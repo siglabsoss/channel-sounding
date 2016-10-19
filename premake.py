@@ -9,7 +9,6 @@ import argparse
 class MakeWrap:
     makebasefn = 'Makefile.base'
     outputs = {'t':[],'r':[]}
-    # self.makebase
 
     def init(self, o):
         fo = open(self.makebasefn, 'r')
@@ -33,6 +32,17 @@ class MakeWrap:
     def finalize(self):
 
         types = ['r', 't']
+
+
+        for type in types:
+            if type == 't':
+                runnerfo = open('_tx_targets', 'w')
+            if type == 'r':
+                runnerfo = open('_rx_targets', 'w')
+
+            runnerfo.write(" ".join(self.outputs[type]))
+            runnerfo.close()
+
 
         alltargets = ""
 
