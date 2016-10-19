@@ -9,7 +9,6 @@ import argparse
 class MakeWrap:
     makebasefn = 'Makefile.base'
     outputs = {'t':[],'r':[]}
-    # self.makebase
 
     def init(self, o):
         fo = open(self.makebasefn, 'r')
@@ -21,7 +20,7 @@ class MakeWrap:
         self.makebase = self.makebase + ln
 
     def add_target(self, txrx, filename, basefile, patches):
-        self.add_line(filename + ': ' + basefile + '\n')
+        self.add_line(filename + ': ' + basefile + ' _premake_run\n')
         self.add_line('\tcp ' + basefile + ' ' + filename + '\n')
         for p in patches:
             self.add_line('\tpatch ' + filename + ' < ' + p + '\n')
@@ -34,19 +33,28 @@ class MakeWrap:
 
         types = ['r', 't']
 
+
+        for type in types:
+            if type == 't':
+                runnerfo = open('_tx_targets', 'w')
+            if type == 'r':
+                runnerfo = open('_rx_targets', 'w')
+
+            runnerfo.write(" ".join(self.outputs[type]))
+            runnerfo.close()
+
+
+        alltargets = ""
+
         for type in types:
             targets = ""
-            delim = ""
             for targ in self.outputs[type]:
-                targets = targets + delim + targ
-                delim = " "
+                targets = targets + " " + targ + " "
+                alltargets = alltargets + " " + targ + " "
 
             self.add_line('run' + type + 'x: ' + targets + '\n')
             self.add_line('\tsudo ls > /dev/null\n')
-            for targ in self.outputs[type]:
-                self.add_line('\tsudo ./' + targ + '\n')
-                if type == 't':
-                    self.add_line('\tsleep 1.3\n')
+            self.add_line('\tsudo python ./runner.py type ' + type + 'x\n')
 
             if type == 'r':
                 self.add_line("\t@sudo touch " + self.output_folder + '/"`date`"\n')
@@ -62,7 +70,7 @@ class MakeWrap:
 
         call(['rm', '-f', 'Makefile'])
         makefo = open('Makefile', 'w')
-        makefo.write("all : drive_rx.py drive_tx.py " + targets + '\n\n' + self.makebase)
+        makefo.write("all : drive_rx.py drive_tx.py " + alltargets + '\n\n' + self.makebase)
         makefo.close()
 
 
@@ -108,8 +116,6 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Prepare Siglabs Suitcase tx/rx Makefile generator")
     parser.add_argument('name', nargs='+', help='Pass in the name of the test to be run.  Output will be in a folder named this')
-    # parser.add_argument('positional', nargs="+", help="A positional argument")
-    # parser.add_argument('--optional', help="An optional argument")
 
     args = parser.parse_args()
 
@@ -121,17 +127,23 @@ if __name__ == '__main__':
 
     call(['sudo', 'mkdir', '-p', output_folder])
 
+    # this file lets make know if premake was run since targets were last made
+    call(['touch', '_premake_run'])
+
     
     # First step, copy the makefile over
 
 
-    hzname = ['905E6', '910E6', '915E6', '920E6', '923E6']
+    # hzname = ['905E6', '910E6', '915E6', '2410E6', '2420E6', '2430E6']
+    hzname = {'9':['905E6', '910E6', '915E6'], '2.4':['2410E6', '2420E6', '2430E6'] }
 
     types = ['r', 't']
+    bands = ['9', '2.4']
+
+    gains = {'9': {'t': 5, 'r': 3}, '2.4': {'t': 24, 'r': 10}}
 
 
 
-    # types = ['r']
     base_grc = ['drive_rx.py', 'drive_tx.py']
 
     wrap = MakeWrap()
@@ -144,38 +156,46 @@ if __name__ == '__main__':
         type = types[i]
         infile = base_grc[i]
         outbase = '_' + type + 'x' + '_'
-        # call['tp']
-        for name in hzname:
-            print "processing " + type + "x for hz " + name
-            hz = eval(name)
-            outfile = outbase + name + '.py'
+        for band in bands:
+            for name in hzname[band]:
+                print "processing " + type + "x for hz " + name
+                hz = eval(name)
+                outfile = outbase + name + '.py'
 
-            # patch the hz
-            hzpatchname = mkfname(name)
-            make_hz_patch(hzpatchname, hz)
+                # patch the hz
+                hzpatchname = mkfname(name)
+                make_hz_patch(hzpatchname, hz)
 
-            if type == 'r':
-                # patch the path
-                rawpath = mkrawname(name, test_name)
-                pathpatchname = mkpathpatchname(name, test_name)
-                full_output = output_folder + '/' + rawpath
-                make_filename_patch(pathpatchname, full_output)
+                if type == 'r':
+                    patch_list = [hzpatchname, 'sleep62.patch']
 
-                # patch the gain
-                rxgain = 3
-                gainpatchname = mkgainpatchname(rxgain)
-                make_gain_patch(gainpatchname, rxgain)
+                    # patch the path
+                    rawpath = mkrawname(name, test_name)
+                    pathpatchname = mkpathpatchname(name, test_name)
+                    full_output = output_folder + '/' + rawpath
+                    make_filename_patch(pathpatchname, full_output)
+                    patch_list.append(pathpatchname)
 
-                # setup makefile
-                wrap.add_target(type, outfile, infile, [hzpatchname, pathpatchname, gainpatchname, 'sleep4.patch'])  # let make know about it
-            if type == 't':
+                    # patch the gain
+                    rxgain = gains[band][type]
+                    gainpatchname = mkgainpatchname(rxgain)
+                    make_gain_patch(gainpatchname, rxgain)
+                    patch_list.append(gainpatchname)
 
-                # patch the gain
-                txgain = 5
-                gainpatchname = mkgainpatchname(txgain)
-                make_gain_patch(gainpatchname, txgain)
+                    if band == '2.4':
+                        patch_list.append('change_antenna.patch') # patch antenna only for rx in 2.4G
 
-                wrap.add_target(type, outfile, infile, [hzpatchname, gainpatchname, 'sleep2.patch'])  # let make know about it
+
+                    # setup makefile
+                    wrap.add_target(type, outfile, infile, patch_list)  # let make know about it
+                if type == 't':
+
+                    # patch the gain
+                    txgain = gains[band][type]
+                    gainpatchname = mkgainpatchname(txgain)
+                    make_gain_patch(gainpatchname, txgain)
+
+                    wrap.add_target(type, outfile, infile, [hzpatchname, gainpatchname, 'sleep60.patch'])  # let make know about it
 
 
 
