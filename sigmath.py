@@ -26,8 +26,6 @@ import hashlib
 import zmq
 import scipy
 
-import pyximport; pyximport.install()
-
 
 # converts string types to complex
 def raw_to_complex(str):
