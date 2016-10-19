@@ -31,8 +31,8 @@ inift = ifft(ifftshift(inft));
 % compute RMS for band
 rms = sqrt(mean( (abs(inift) .^ 2) ));
 
-% compute average BPF per sample power on a 50-ohm transmission line
-power = rms.^2 / 50;
+% compute average BPF per sample power on a 1-ohm transmission line
+power = rms.^2 / 1;
 
 % compute PSD
 e = power / sps;
