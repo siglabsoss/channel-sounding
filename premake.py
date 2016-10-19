@@ -38,11 +38,9 @@ class MakeWrap:
 
         for type in types:
             targets = ""
-            # delim = ""
             for targ in self.outputs[type]:
                 targets = targets + " " + targ + " "
                 alltargets = alltargets + " " + targ + " "
-                # delim = " "
 
             self.add_line('run' + type + 'x: ' + targets + '\n')
             self.add_line('\tsudo ls > /dev/null\n')
