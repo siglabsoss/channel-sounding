@@ -32,7 +32,7 @@ if __name__ == '__main__':
         commands[i] = './' + commands[i]
 
 
-    target_time = 65
+    target_time = 75
 
     runs = []
     for com in commands:
@@ -40,6 +40,7 @@ if __name__ == '__main__':
         print "starting at", t1
 
         call(['sudo', com])
+        call(['sudo', 'sync'])
         t2 = time.time()
         print "ending at", t2
 
@@ -48,6 +49,7 @@ if __name__ == '__main__':
         if delta >= target_time:
             print "ZOMG this run took TOO LONG", delta, "instead of", target_time
         else:
+            print "sleeping for", (target_time-delta)
             time.sleep(target_time-delta)
 
         runs.append(t2-t1)
