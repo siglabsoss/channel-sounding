@@ -26,8 +26,6 @@ import hashlib
 import zmq
 import scipy
 
-import pyximport; pyximport.install()
-
 
 # converts string types to complex
 def raw_to_complex(str):
@@ -62,6 +60,13 @@ def complex_to_ishort_multi(floats):
 
 def ishort_to_complex_multi(ishort_bytes):
     packed = struct.unpack("%dh" % int(len(ishort_bytes)/2), ishort_bytes)
+    rere = sig_everyn(packed, 2, 0)
+    imim = sig_everyn(packed, 2, 1)
+    floats_recovered = list(itertools.imap(np.complex, rere, imim))
+    return floats_recovered
+
+def raw_to_complex_multi(raw_bytes):
+    packed = struct.unpack("%df" % int(len(raw_bytes)/4), raw_bytes)
     rere = sig_everyn(packed, 2, 0)
     imim = sig_everyn(packed, 2, 1)
     floats_recovered = list(itertools.imap(np.complex, rere, imim))
