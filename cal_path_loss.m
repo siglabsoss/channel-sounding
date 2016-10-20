@@ -36,7 +36,7 @@ ts_int = ts / usf;
 dc = 0.5;
 
 % doppler (Hz)
-dplr = 4;
+dplr = 0.5;
 
 % process gain
 pg = length(ref);
@@ -65,6 +65,8 @@ ref_int_norm = ref_int./sqrt(ref_int'*ref_int);
 % time series
 t = ts:ts:X_p;
 
+% TODO: measure CFO
+
 % CFO in radians
 cfo = 0 * 2 * pi;
 
@@ -75,15 +77,7 @@ lo = exp(1j*cfo*t);
 X = X .* lo';
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% CROP SIGNAL
-%%%%%%%%%%%%%%%%%%%%%%%
-
-% remove first half second of data due to SDR filter response
-%X_crop = X(fs/2:end);
-X_crop = X;
-
-%%%%%%%%%%%%%%%%%%%%%%%
-% REMOVE INTERFERERS
+% CANCEL INTERFERERS
 %%%%%%%%%%%%%%%%%%%%%%%
 
 % TODO
@@ -96,7 +90,7 @@ X_crop = X;
 period = pg / dc;
 
 % number of PN sequence periods in recording
-n_max = floor(length(X_crop) / period);
+n_max = floor(length(X) / period);
 
 % number of PN sequences in Doppler period
 n_dplr = floor(fs / period / dplr);
@@ -108,62 +102,82 @@ if(n_dpp < 2)
     error('Need at least 2 Doppler periods to measure channel');
 end
 
-% use either one Doppler period or the entire recording, whichever is less
-%n = min([n_dplr n_max]);
-
 % preallocate array
 X_xcr(pg_int/dc,n_dpp) = 0;
 
 for idx = 1:n_dpp
 
     % chop recording up into equally PN sequence periods
-    X_crop_ave = reshape(X_crop(1:n_max*period), period, n_max);
+    X_ave = reshape(X(1:n_max*period), period, n_max);
 
     % average
     X_s = (idx-1)*n_dplr+1;
     X_e = idx * n_dplr;
-    X_crop_ave = sum(X_crop_ave(:,X_s:X_e), 2)./n_dplr;
+    X_ave = sum(X_ave(:,X_s:X_e), 2)./n_dplr;
 
     % up-sample signal to remove Sample Phase Offset
-    X_crop_ave_int = interp(double(X_crop_ave),usf);
+    X_ave_int = interp(double(X_ave),usf);
 
     % add cyclic prefix and sufix
-    X_crop_ave_int_cp = [X_crop_ave_int(end/2:end); X_crop_ave_int; X_crop_ave_int(1:end/2)];
+    X_ave_int_cp = [X_ave_int(end/2:end); X_ave_int; X_ave_int(1:end/2)];
 
     %%%%%%%%%%%%%%%%%%%%%%%
     % CROSS CORRELATION
     %%%%%%%%%%%%%%%%%%%%%%%
 
     % cross-correlaton
-    X_xcr_p = xcorr(X_crop_ave_int_cp, ref_int_norm);
+    X_xcr_p = xcorr(X_ave_int_cp, ref_int_norm);
 
     % remove overlap
     X_xcr(:,idx) = X_xcr_p(2*pg_int/dc+1:3*pg_int/dc);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% COMPUTE PEAK TO AVERAGE (PAR) ENERGY
+% COMPUTE ENERGY PEAK TO AVERAGE RATIO (PAR)
 %%%%%%%%%%%%%%%%%%%%%%%
 a = max(abs(X_xcr),[],1);
 b = sum(abs(X_xcr), 1);
 X_xcr_par = a ./ (b / (pg_int/dc));
 
-k = find(X_xcr_par > 10)
+%%%%%%%%%%%%%%%%%%%%%%%
+% DISCARD DOPPLER PERIODS UNTIL SUFFICIENT ENERGY PAR IS DETECTED
+% note: This removes "start of recording" glitches
+%%%%%%%%%%%%%%%%%%%%%%%
+
+k = find(X_xcr_par > 5);
 
 if (length(k) <= 0)
     error('No Doppler periods with sufficient Peak-to-Average energy');
 end
 
-%X_xcr = X_xcr(:,k(1):end);
+if ((length(k) + 1) < n_dpp)
+    error('Need at least 2 Doppler periods with sufficient energy');
+end
 
+% discard doppler periods before sufficient energy PAR is detected
+X_xcr = X_xcr(:,k(1):end);
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % EQUALIZE
 %%%%%%%%%%%%%%%%%%%%%%%
 
+% TODO
+
+[m,idx] = max(abs(X_xcr(:,1)));
+
+% capture 10us before and after
+spread = floor (2e-6 / ts_int);
+
+a = X_xcr(idx-spread+1:idx+spread,1);
+b = fftshift(fft(a));
+%figure;
+%plot(abs(b));
+
 %%%%%%%%%%%%%%%%%%%%%%%
 % MEASURE POWER
 %%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO
 
 
 % % normalize detection by finding the highest correlation
@@ -197,6 +211,42 @@ figure;
 % title('path loss');
 
 %subplot(2,2,3);
-%surf(abs(X_xcr(6500:6800,2:end)),'EdgeColor','none');
-plot(abs(X_xcr(:,2:end)));
-title('interpolated cross correlation');
+%surf(abs(X_xcr(1.445e4:1.480e4,2:end)),'EdgeColor','none');
+%image(abs(X_xcr(1.445e4:1.480e4,2:end)));
+
+% find loudest multi-path
+[m,idx] = max(abs(X_xcr(:,1)));
+
+% capture 10us before and after
+spread = floor (2e-6 / ts_int);
+a = X_xcr(idx-spread+1:idx+spread,:);
+t_mp = length(a(:,1)) / (fs * usf);
+t = ts_int:ts_int:t_mp;
+
+y_mp = length(a(1,:));
+y = (1/dplr):(1/dplr):(y_mp/dplr);
+
+t2d = t' * ones(1,length(a(1,:)));
+
+y2d = ones(length(a(:,1)),1) * y;
+
+plot(t, abs(a));
+xlabel('time (s)');
+ylabel('power (W)');
+title('Delay Spreads');
+
+figure;
+surf(t2d,y2d,abs(a),'EdgeColor','none');
+xlabel('spread (s)');
+ylabel('time (s)');
+zlabel('power (W)');
+title('Delay Spreads');
+
+
+
+
+
+
+
+
+

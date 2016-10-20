@@ -1,4 +1,4 @@
-function [out, power, rms, psd_dbhz, inft] = cal_filter(in, sps, flt_start, flt_stop)
+function [out, powerW, rmsV, psd_dbWhz, inft] = cal_filter(in, sps, flt_start, flt_stop)
 
 % size of data set
 l = size(in,1);
@@ -29,14 +29,14 @@ inft(bpfe:end) = 0;
 inift = ifft(ifftshift(inft));
 
 % compute RMS for band
-rms = sqrt(mean( (abs(inift) .^ 2) ));
+rmsV = rms(inift);
 
 % compute average BPF per sample power on a 1-ohm transmission line
-power = rms.^2 / 1;
+powerW = rmsV.^2 / 1;
 
 % compute PSD
-e = power / sps;
-psd_dbhz = 10 * log10(e);
+bw = flt_stop - flt_start;
+psd_dbWhz = 10 * log10(powerW/bw);
 
 
 out = inift;
