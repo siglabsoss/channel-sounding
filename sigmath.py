@@ -65,6 +65,13 @@ def ishort_to_complex_multi(ishort_bytes):
     floats_recovered = list(itertools.imap(np.complex, rere, imim))
     return floats_recovered
 
+def raw_to_complex_multi(raw_bytes):
+    packed = struct.unpack("%df" % int(len(raw_bytes)/4), raw_bytes)
+    rere = sig_everyn(packed, 2, 0)
+    imim = sig_everyn(packed, 2, 1)
+    floats_recovered = list(itertools.imap(np.complex, rere, imim))
+    return floats_recovered
+
 # a pretty-print for hex strings
 def get_rose(data):
     try:

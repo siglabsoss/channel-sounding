@@ -22,7 +22,7 @@
 % Author: Ameya Patil <ameya@ameya>
 % Created: 2016-10-13
 
-function [gain_error_db, psd_n_cal_db] = cal_proceedure (cal_recording)
+function [gain_error_db, psd_n_cal_dbmhz] = cal_proceedure (cal_recording)
 
 %
 % This function is expecting a time series as follows:
@@ -46,14 +46,14 @@ sps = 6.25e6;
 spts = 3.125e6;
 
 % cal single tone power (dBm)
-cstp = -50;
+cstp_dbm = -50;
 
 % start of time series zero pading index (to remove glitches)
 % begin time series at 100ms
 stszpi = sps*0.100 + 1;
 
 % end of time series zero padding index (to remove glitches)
-% end time series at 900ms
+% end time series at 400ms
 etszpi = sps*0.400;
 
 % calibration channel start (Hz)
@@ -94,7 +94,7 @@ noise_recording = cal_recording(spts*32+1:spts*64-1000);
 noise_recording(end+1:end+1000) = 0;
 noise_recording = reshape(noise_recording, spts, 32);
 
-% chop 100ms off ends to remove switching and startup transients
+% chop off ends to remove switching and startup transients
 noise_recording = noise_recording(stszpi:etszpi,:);
 
 
@@ -106,11 +106,12 @@ noise_recording = noise_recording(stszpi:etszpi,:);
 
 
 for i = 1:32;
-   [out, power, rms, psd_db] = cal_filter(gain_recording(:,i),sps,ccs,cce);
+   [out, powerW, rmsV, psd_dbWhz] = cal_filter(gain_recording(:,i),sps,ccs,cce);
 
-    power_dbm = 10 * log10(power);
+    % band power
+    power_dbm = 10 * log10(powerW) + 30;
 
-    meas_gain_error_db(i) = power_dbm - cstp;
+    meas_gain_error_db(i) = power_dbm - cstp_dbm;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -120,9 +121,11 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 for i = 1:32;
-   [out, power, rms, psd_db] = cal_filter(noise_recording(:,i),sps,ncs,nce);
+   [out, powerW, rmsV, psd_dbWhz] = cal_filter(noise_recording(:,i),sps,ncs,nce);
 
-    psd_n_cal_db(i) = psd_db - meas_gain_error_db(i);
+    % band power spectral density
+    psd_n_cal_dbWhz(i) = psd_dbWhz - meas_gain_error_db(i);
+    psd_n_cal_dbmhz(i) = psd_n_cal_dbWhz(i) + 30;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -136,11 +139,13 @@ fs_recording = ones(spts,1);
 fs_recording = fs_recording(stszpi:etszpi,:);
 
 for i = 1:32;
-   [out, power, rms, psd_db] = cal_filter(fs_recording,sps,-1000,1000);
+   [out, powerW, rmsV, psd_dbWhz] = cal_filter(fs_recording,sps,-1000,1000);
 
-   power_dbm = 10 * log10(power);
+   % band power
+   power_dbW = 10 * log10(powerW);
+   power_dbm = power_dbm + 30;
    
-    fs_cal_db(i) = power_dbm - meas_gain_error_db(i);
+   fs_cal_dbm(i) = power_dbm - meas_gain_error_db(i);
 end
 
 
@@ -158,13 +163,13 @@ xlabel('time (s)');
 ylabel('calibration signal sequence (Volts)');
 
 subplot(2,2,2);
-plot(sdr_gain_steps, psd_n_cal_db);
+plot(sdr_gain_steps, psd_n_cal_dbmhz);
 title('Siglabs Suitcase Receiver S/N 001');
 xlabel('SDR gain value (db)');
 ylabel('Noise Power Spectral Density (dBm/Hz)');
 
 subplot(2,2,3);
-plot(sdr_gain_steps, fs_cal_db);
+plot(sdr_gain_steps, fs_cal_dbm);
 title('Siglabs Suitcase Receiver S/N 001');
 xlabel('SDR gain value (db)');
 ylabel('Full Scale Single Tone Input (dBm)');
