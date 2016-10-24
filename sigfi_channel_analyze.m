@@ -21,16 +21,22 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function cal_path_loss(X, ref, tx_dbm, txant_db, rxant_db)
+function multipath_vec = sigfi_channel_analyze(X, fs, ref, fs_ref, tx_dbm, txant_db, rxant_db)
+
+% sample rate to filter sample rate ratio
+% round because floating point error will cause indexing error
+% Note: the sample rate to filter sample rate ratio needs to be integer!
+srfsr = round(fs / fs_ref);
 
 % up-sample factor
-usf = 10;
+% Note: if the signal is not oversampled then do additional oversampling
+usf = ceil(5 / srfsr);
 
 % sample rate
-fs = 6.25e6;
 ts = 1/fs;
 fs_int = fs * usf;
 ts_int = ts / usf;
+X_len = length(X);
 
 % duty cycle
 dc = 0.5;
@@ -39,7 +45,7 @@ dc = 0.5;
 dplr = 0.5;
 
 % process gain
-pg = length(ref);
+pg = length(ref) * srfsr;
 pg_int = pg * usf;
 
 % sample length
@@ -48,15 +54,23 @@ X_l = length(X);
 % sample period
 X_p = X_l / fs;
 
+% nearby interferer auto-gain threshold
+thresh = 1e-8;
+
+
 %%%%%%%%%%%%%%%%%%%%%%%
 % UP-SAMPLE AND NORMALIZE MATCHED FILTER
 %%%%%%%%%%%%%%%%%%%%%%%
+
+% up-sample to sample rate
+ref = interp(double(ref), srfsr);
 
 % up-sample matched filter to remove Sample Phase Offset
 ref_int = interp(double(ref),usf);
 
 % normalize match filter
 ref_int_norm = ref_int./sqrt(ref_int'*ref_int);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % CORRECT CFO
@@ -77,10 +91,29 @@ lo = exp(1j*cfo*t);
 X = X .* lo';
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% CANCEL INTERFERERS
+% FILTER
 %%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO
+[X_filt, ~, ~, ~, ~] = cal_filter(X, fs, -fs/(2*srfsr), fs/(2*srfsr));
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% AUTO-GAIN TO REJECT NEARBY IN-BAND INTERFERERS
+%%%%%%%%%%%%%%%%%%%%%%%
+
+X_filt_n_idx = find(abs(X_filt) > thresh);
+X_filt(X_filt_n_idx) = 0;
+
+% this interpolates data when theres missing samples due to nearby
+% in-band interferers
+%X_filt_int(1:(pg_int/dc)) = 0;
+%X_filt_int_n_idx = find(abs(X_filt_int(pg_int/dc+1:end)) > thresh);
+%X_filt_int(X_filt_int_n_idx + (pg_int/dc)) = X_filt_int(X_filt_int_n_idx);
+
+%for idx = 1:n_awr
+%    X_filt_int_n_idx = find(abs(X_filt_int(:,idx)) > thresh);
+%    X_filt_int(X_filt_int_n_idx, idx) = 0;
+%end
+
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % AVERAGE SIGNAL
@@ -90,72 +123,132 @@ X = X .* lo';
 period = pg / dc;
 
 % number of PN sequence periods in recording
-n_max = floor(length(X) / period);
+n_max = floor(length(X_filt) / period);
 
-% number of PN sequences in Doppler period
-n_dplr = floor(fs / period / dplr);
+% number of PN sequences in averaging window
+n_pav = floor(fs / period / dplr);
 
-% number of Doppler periods in recording
-n_dpp = floor(n_max / n_dplr);
+% number of averaging windows in recording
+n_awr = floor(n_max / n_pav);
 
-if(n_dpp < 2)
+if(n_awr < 2)
     error('Need at least 2 Doppler periods to measure channel');
 end
 
-% preallocate array
-X_xcr(pg_int/dc,n_dpp) = 0;
-
-for idx = 1:n_dpp
+for idx = 1:n_awr
 
     % chop recording up into equally PN sequence periods
-    X_ave = reshape(X(1:n_max*period), period, n_max);
+    X_ave = reshape(X_filt(1:n_max*period), period, n_max);
 
     % average
-    X_s = (idx-1)*n_dplr+1;
-    X_e = idx * n_dplr;
-    X_ave = sum(X_ave(:,X_s:X_e), 2)./n_dplr;
+    X_s = (idx-1)*n_pav+1;
+    X_e = idx * n_pav;
+    X_ave = sum(X_ave(:,X_s:X_e), 2)./(n_pav);
 
     % up-sample signal to remove Sample Phase Offset
-    X_ave_int = interp(double(X_ave),usf);
+    %X_ave_int = interp(double(X_ave),usf);
 
     % add cyclic prefix and sufix
-    X_ave_int_cp = [X_ave_int(end/2:end); X_ave_int; X_ave_int(1:end/2)];
+    X_ave_cp(:,idx) = [X_ave(end/2:end); X_ave; X_ave(1:end/2)];
 
-    %%%%%%%%%%%%%%%%%%%%%%%
-    % CROSS CORRELATION
-    %%%%%%%%%%%%%%%%%%%%%%%
+end
 
+%%%%%%%%%%%%%%%%%%%%%%%
+% INTERPOLATE
+%%%%%%%%%%%%%%%%%%%%%%%
+
+for idx = 1:n_awr
+    X_filt_int(:,idx) = interp(double(X_ave_cp(:,idx)), usf);
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% CROSS CORRELATION
+%%%%%%%%%%%%%%%%%%%%%%%
+
+% preallocate array
+X_xcr(pg_int/dc,n_awr) = 0;
+
+for idx = 1:n_awr
+    
     % cross-correlaton
-    X_xcr_p = xcorr(X_ave_int_cp, ref_int_norm);
+    X_xcr_p = xcorr(X_filt_int(:,idx), ref_int_norm);
 
-    % remove overlap
+    % remove cyclic prefix and sufix
     X_xcr(:,idx) = X_xcr_p(2*pg_int/dc+1:3*pg_int/dc);
+    
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% COMPUTE ENERGY PEAK TO AVERAGE RATIO (PAR)
-%%%%%%%%%%%%%%%%%%%%%%%
-a = max(abs(X_xcr),[],1);
-b = sum(abs(X_xcr), 1);
-X_xcr_par = a ./ (b / (pg_int/dc));
-
-%%%%%%%%%%%%%%%%%%%%%%%
-% DISCARD DOPPLER PERIODS UNTIL SUFFICIENT ENERGY PAR IS DETECTED
-% note: This removes "start of recording" glitches
+% AVERAGE MULTIPLE CROSS CORRELATIONS
 %%%%%%%%%%%%%%%%%%%%%%%
 
-k = find(X_xcr_par > 5);
+X_xcr_ave = sum(abs(X_xcr),2) ./ size(X_xcr,2);
 
-if (length(k) <= 0)
-    error('No Doppler periods with sufficient Peak-to-Average energy');
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% MULTI-PATH PEAK-TO-AVERAGE RATIO (PAR) 
+%%%%%%%%%%%%%%%%%%%%%%%
+
+% find peak
+[~,idx] = max(X_xcr_ave);
+
+% calculate peak to average (PAR) ratio)
+X_xcr_ave_par = max(X_xcr_ave) / mean(X_xcr_ave)
+
+if (X_xcr_ave_par < 3)
+    error('No sufficiently strong multi-paths'); 
 end
 
-if ((length(k) + 1) < n_dpp)
-    error('Need at least 2 Doppler periods with sufficient energy');
-end
+%%%%%%%%%%%%%%%%%%%%%%%
+% CIRCLE-SHIFT
+% Note: this puts peak in center of plot
+%%%%%%%%%%%%%%%%%%%%%%%
 
-% discard doppler periods before sufficient energy PAR is detected
-X_xcr = X_xcr(:,k(1):end);
+cs_len = size(X_xcr_ave,1);
+cs_mid = floor(cs_len / 2);
+
+X_xcr_ave = circshift(X_xcr_ave, cs_mid - idx);
+X_xcr = circshift(X_xcr, cs_mid - idx, 1);
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% MEASURE CFO
+% Note: this doesn't work well at low SNR
+%%%%%%%%%%%%%%%%%%%%%%%
+
+xcr_tap = X_xcr(cs_mid,:);
+xcr_tap_ang = unwrap(angle(xcr_tap));
+xcr_tap_ang_diff = diff(xcr_tap_ang);
+
+tcfo_int = n_pav * period * ts;
+tcfo_mp = tcfo_int * length(xcr_tap_ang_diff);
+tcfo = (tcfo_int):tcfo_int:tcfo_mp;
+
+% scale to Hertz
+xcr_tap_ang_diff = xcr_tap_ang_diff / (2 * pi * tcfo_int);
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% MULTI-PATH PROPERTIES
+%%%%%%%%%%%%%%%%%%%%%%%
+
+% capture 10us before and after
+%spread = floor (10e-6 / ts_int);
+spread = 64;
+multipath_vec = X_xcr(cs_mid-spread+1:cs_mid+spread,:);
+
+% generate x-axis
+t_mp = length(multipath_vec(:,1)) / (fs * usf);
+t = ts_int:ts_int:t_mp;
+t2d = t' * ones(1,length(multipath_vec(1,:)));
+
+% generate y-axis
+y_mp = length(multipath_vec(1,:));
+y = (1/dplr):(1/dplr):(y_mp/dplr);
+y2d = ones(length(multipath_vec(:,1)),1) * y;
+
+multipath_ave = X_xcr_ave(cs_mid-spread+1:cs_mid+spread,:);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % EQUALIZE
@@ -163,87 +256,70 @@ X_xcr = X_xcr(:,k(1):end);
 
 % TODO
 
-[m,idx] = max(abs(X_xcr(:,1)));
-
-% capture 10us before and after
-spread = floor (2e-6 / ts_int);
-
-a = X_xcr(idx-spread+1:idx+spread,1);
-b = fftshift(fft(a));
-%figure;
-%plot(abs(b));
-
 %%%%%%%%%%%%%%%%%%%%%%%
 % MEASURE POWER
 %%%%%%%%%%%%%%%%%%%%%%%
 
 % TODO
 
+%%%%%%%%%%%%%%%%%%%%%%%
+% MEASURE DOPPLER POWER SPECTRUM
+%%%%%%%%%%%%%%%%%%%%%%%
 
-% % normalize detection by finding the highest correlation
-% mc = max(abs(xcr_int));
-% 
-% % find first peak
-% idx = find(xcr_int > (0.5 * mc));
-% 
-% % extract peaks
-% xcr_max = abs(xcr_int(idx(1):2048*10:end));
-% 
-% % normalize
-% xcr_norm = xcr_max * (1/pg);
-% 
-% % convert to power
-% xcr_pwr = xcr_norm .^ 2;
-% xcr_pwr_db = 10 * log10(xcr_pwr);
-% 
-% % compute path loss
-% tx_dbW = tx_dbm - 30;
-% pl = tx_dbW - xcr_pwr_db + txant_db + rxant_db;
+
+dfs = -dplr+(dplr/size(multipath_vec,2)*2):dplr/size(multipath_vec,2)*2:dplr;
+dps = abs(fftshift(fft(multipath_vec,[],2),2))';
+
+% normalize power
+dps = dps ./ max(max(abs(dps)));
 
 figure;
-% subplot(2,2,1);
-% plot(xcr_pwr_db);
-% ylabel('db-Watts');
-% subplot(2,2,2);
-% plot(pl);
-% ylabel('dB attenuation')
-% ylim([50 150]);
-% title('path loss');
+plot(dfs, dps);
+xlabel('frequency (Hz)');
+ylabel('normalized power');
+title('Dopper Power Spectrum');
 
-%subplot(2,2,3);
-%surf(abs(X_xcr(1.445e4:1.480e4,2:end)),'EdgeColor','none');
-%image(abs(X_xcr(1.445e4:1.480e4,2:end)));
+figure;
+surf(dps,'EdgeColor','none');
+set(gca,'ZScale','log');
+view(0, 90);
 
-% find loudest multi-path
-[m,idx] = max(abs(X_xcr(:,1)));
+figure;
+plot(tcfo, xcr_tap_ang_diff);
+ylim([-1 1]);
+xlabel('time (s)');
+ylabel('frequency (Hz)');
+title('Channel Frequency Offset');
 
-% capture 10us before and after
-spread = floor (2e-6 / ts_int);
-a = X_xcr(idx-spread+1:idx+spread,:);
-t_mp = length(a(:,1)) / (fs * usf);
-t = ts_int:ts_int:t_mp;
+figure;
+ta = ts*(1000+1):ts*1000:X_len*ts;
+xa = X_filt(1000+1:1000:end);
+plot(ta,abs(xa));
+xlabel('time (s)');
+ylabel('amplitude (Volts @ 1-Ohm)');
+title('test recording');
 
-y_mp = length(a(1,:));
-y = (1/dplr):(1/dplr):(y_mp/dplr);
+figure;
+plot(t, multipath_ave);
+hline(2e-10,'r:','threshold');
+title('Average Multipath');
+xlabel('time (s)');
 
-t2d = t' * ones(1,length(a(1,:)));
-
-y2d = ones(length(a(:,1)),1) * y;
-
-plot(t, abs(a));
+figure;
+plot(t, abs(multipath_vec));
 xlabel('time (s)');
 ylabel('power (W)');
 title('Delay Spreads');
 
 figure;
-surf(t2d,y2d,abs(a),'EdgeColor','none');
+surf(t2d,y2d,abs(multipath_vec),'EdgeColor','none');
+view(0, 90);
 xlabel('spread (s)');
 ylabel('time (s)');
 zlabel('power (W)');
 title('Delay Spreads');
 
-
-
+autoArrangeFigures;
 
 
 
