@@ -234,7 +234,7 @@ xcr_tap_ang_diff = xcr_tap_ang_diff / (2 * pi * tcfo_int);
 
 % capture 10us before and after
 %spread = floor (10e-6 / ts_int);
-spread = 64;
+spread = 256;
 multipath_vec = X_xcr(cs_mid-spread+1:cs_mid+spread,:);
 
 % generate x-axis
@@ -283,6 +283,7 @@ figure;
 surf(dps,'EdgeColor','none');
 set(gca,'ZScale','log');
 view(0, 90);
+title('Dopper Power Spectrum');
 
 figure;
 plot(tcfo, xcr_tap_ang_diff);
