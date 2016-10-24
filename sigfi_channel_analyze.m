@@ -38,10 +38,16 @@ fs_int = fs * usf;
 ts_int = ts / usf;
 X_len = length(X);
 
-% duty cycle
+% duty cycle of PN sequence
 dc = 0.5;
 
-% doppler (Hz)
+% doppler averaging period (Hz)
+% Note: THIS IS WHERE YOU SET HOW LONG YOU AVERAGE EACH DOPPER POINT
+%        10Hz = 0.1 seconds
+%         2Hz = 0.5 seconds
+%       0.5Hz = 2 seconds
+%       0.1Hz = 10 seconds
+%        etc....
 dplr = 0.5;
 
 % process gain
@@ -55,6 +61,9 @@ X_l = length(X);
 X_p = X_l / fs;
 
 % nearby interferer auto-gain threshold
+% Note: THIS IS THE THRESHOLD IN VOLTS @ 1-OHM (SCALED) WHEN THE CHANNEL
+%       IS MUTED DUE TO NEARBY IN-BAND INTERFERENCE.
+%       NEED TO ADJUST THIS TO MAXIMIZE CORRELATION PERFORMANCE.
 thresh = 1e-8;
 
 
@@ -90,6 +99,8 @@ lo = exp(1j*cfo*t);
 % mix
 X = X .* lo';
 
+% TODO: CORRECT FOR RUBIDIUM BEATING
+
 %%%%%%%%%%%%%%%%%%%%%%%
 % FILTER
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -108,11 +119,6 @@ X_filt(X_filt_n_idx) = 0;
 %X_filt_int(1:(pg_int/dc)) = 0;
 %X_filt_int_n_idx = find(abs(X_filt_int(pg_int/dc+1:end)) > thresh);
 %X_filt_int(X_filt_int_n_idx + (pg_int/dc)) = X_filt_int(X_filt_int_n_idx);
-
-%for idx = 1:n_awr
-%    X_filt_int_n_idx = find(abs(X_filt_int(:,idx)) > thresh);
-%    X_filt_int(X_filt_int_n_idx, idx) = 0;
-%end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -135,9 +141,11 @@ if(n_awr < 2)
     error('Need at least 2 Doppler periods to measure channel');
 end
 
+X_ave_cp(period * 2, n_awr) = 0;
+
 for idx = 1:n_awr
 
-    % chop recording up into equally PN sequence periods
+    % chop recording up into equal averaging periods
     X_ave = reshape(X_filt(1:n_max*period), period, n_max);
 
     % average
@@ -145,17 +153,17 @@ for idx = 1:n_awr
     X_e = idx * n_pav;
     X_ave = sum(X_ave(:,X_s:X_e), 2)./(n_pav);
 
-    % up-sample signal to remove Sample Phase Offset
-    %X_ave_int = interp(double(X_ave),usf);
-
     % add cyclic prefix and sufix
-    X_ave_cp(:,idx) = [X_ave(end/2:end); X_ave; X_ave(1:end/2)];
+    X_ave_cp(:,idx) = [X_ave(end/2+1:end); X_ave; X_ave(1:end/2)];
 
 end
+
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % INTERPOLATE
 %%%%%%%%%%%%%%%%%%%%%%%
+
+X_filt_int(period * 2 * usf, n_awr) = 0;
 
 for idx = 1:n_awr
     X_filt_int(:,idx) = interp(double(X_ave_cp(:,idx)), usf);
@@ -194,8 +202,9 @@ X_xcr_ave = sum(abs(X_xcr),2) ./ size(X_xcr,2);
 [~,idx] = max(X_xcr_ave);
 
 % calculate peak to average (PAR) ratio)
-X_xcr_ave_par = max(X_xcr_ave) / mean(X_xcr_ave)
+X_xcr_ave_par = max(X_xcr_ave) / mean(X_xcr_ave);
 
+% if there's no strong multi-path peak then there's nothing you can do!!!
 if (X_xcr_ave_par < 3)
     error('No sufficiently strong multi-paths'); 
 end
@@ -214,13 +223,16 @@ X_xcr = circshift(X_xcr, cs_mid - idx, 1);
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % MEASURE CFO
-% Note: this doesn't work well at low SNR
+% Note: this doesn't work well at low SNR.
+% Note: decrease averaging window to get better measurements.
 %%%%%%%%%%%%%%%%%%%%%%%
 
+% measure change in phase angle of largest multi-path
 xcr_tap = X_xcr(cs_mid,:);
 xcr_tap_ang = unwrap(angle(xcr_tap));
 xcr_tap_ang_diff = diff(xcr_tap_ang);
 
+% generate y-axis (for plots)
 tcfo_int = n_pav * period * ts;
 tcfo_mp = tcfo_int * length(xcr_tap_ang_diff);
 tcfo = (tcfo_int):tcfo_int:tcfo_mp;
@@ -229,26 +241,49 @@ tcfo = (tcfo_int):tcfo_int:tcfo_mp;
 xcr_tap_ang_diff = xcr_tap_ang_diff / (2 * pi * tcfo_int);
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% MULTI-PATH PROPERTIES
+% MULTI-PATH STATISTICS
 %%%%%%%%%%%%%%%%%%%%%%%
 
 % capture 10us before and after
 %spread = floor (10e-6 / ts_int);
+
+% capture 256 samples before and after peak
 spread = 256;
+
+% window multipath vectors to region of interest (i.e. center +/- spread)
 multipath_vec = X_xcr(cs_mid-spread+1:cs_mid+spread,:);
 
-% generate x-axis
+% generate x-axis (for plots)
 t_mp = length(multipath_vec(:,1)) / (fs * usf);
 t = ts_int:ts_int:t_mp;
 t2d = t' * ones(1,length(multipath_vec(1,:)));
 
-% generate y-axis
+% generate y-axis (for plots)
 y_mp = length(multipath_vec(1,:));
 y = (1/dplr):(1/dplr):(y_mp/dplr);
 y2d = ones(length(multipath_vec(:,1)),1) * y;
 
+% SUM ALL MULTIPATH AVERAGING WINDOWS TOGETHER (i.e. ENTIRE RECORDING)
+% Note: THIS IS NOT YET SCALED PROPERLY.. PROBABLY NEED TO DIVIDE
+%       BY NUMBER OF AVERAGING WINDOWS THAT ARE BEING SUMMED???
 multipath_ave = X_xcr_ave(cs_mid-spread+1:cs_mid+spread,:);
 
+% TODO: PASS BACK MULTI-PATH STATISTICS TO CALLING FUNCTION SO THAT
+%       THEY MAY BE TABULATED
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% MEASURE DOPPLER POWER SPECTRUM
+%%%%%%%%%%%%%%%%%%%%%%%
+
+dfs = -dplr+(dplr/size(multipath_vec,2)*2):dplr/size(multipath_vec,2)*2:dplr;
+dps = abs(fftshift(fft(multipath_vec,[],2),2))';
+
+% normalize power
+dps = dps ./ max(max(abs(dps)));
+
+% TODO: PASS BACK DOPPLER STATISTICS TO CALLING FUNCTION SO THAT THEY
+%       MAY BE TABULATED
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % EQUALIZE
@@ -263,15 +298,18 @@ multipath_ave = X_xcr_ave(cs_mid-spread+1:cs_mid+spread,:);
 % TODO
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% MEASURE DOPPLER POWER SPECTRUM
+% MEASURE PATH LOSS
 %%%%%%%%%%%%%%%%%%%%%%%
 
+% TODO
 
-dfs = -dplr+(dplr/size(multipath_vec,2)*2):dplr/size(multipath_vec,2)*2:dplr;
-dps = abs(fftshift(fft(multipath_vec,[],2),2))';
+% TODO: PASS BACK PATH LOSS TO CALLING FUNCTION SO THAT STATISTICS CAN
+%       BE MEASURED.
 
-% normalize power
-dps = dps ./ max(max(abs(dps)));
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% PLOTS PLOTS PLOTS
+%%%%%%%%%%%%%%%%%%%%%%%
 
 figure;
 plot(dfs, dps);
