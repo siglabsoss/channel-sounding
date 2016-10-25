@@ -20,5 +20,7 @@ fid = fopen(file_name, 'r');
 
 b = fread(fid, len/4, 'single');
 
+fclose(fid);
+
 out = complex(b(1:2:end), b(2:2:end)) ./ calibration_factor;
 
