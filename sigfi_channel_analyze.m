@@ -21,7 +21,7 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function multipath_vec = sigfi_channel_analyze(X, fs, ref, fs_ref, tx_dbm, txant_db, rxant_db)
+function [P_loss_db, tau, sigma_tau] = sigfi_channel_analyze(X, title_str, fs, ref, fs_ref, tx_dbm, txant_db, rxant_db)
 
 % sample rate to filter sample rate ratio
 % round because floating point error will cause indexing error
@@ -48,7 +48,7 @@ dc = 0.5;
 %       0.5Hz = 2 seconds
 %       0.1Hz = 10 seconds
 %        etc....
-dplr = 0.5;
+dplr = 2;
 
 % process gain
 pg = length(ref) * srfsr;
@@ -64,7 +64,11 @@ X_p = X_l / fs;
 % Note: THIS IS THE THRESHOLD IN VOLTS @ 1-OHM (SCALED) WHEN THE CHANNEL
 %       IS MUTED DUE TO NEARBY IN-BAND INTERFERENCE.
 %       NEED TO ADJUST THIS TO MAXIMIZE CORRELATION PERFORMANCE.
-thresh = 1e-8;
+%thresh = 1.7e-6;
+thresh = 3e-6;
+
+% RMS delay spread threshold (dB)
+rms_thresh = 10;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -78,7 +82,8 @@ ref = interp(double(ref), srfsr);
 ref_int = interp(double(ref),usf);
 
 % normalize match filter
-ref_int_norm = ref_int./sqrt(ref_int'*ref_int);
+%ref_int_norm = ref_int./sqrt(ref_int'*ref_int);
+ref_int_norm = ref_int./sum(abs(ref_int).^2);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -86,7 +91,7 @@ ref_int_norm = ref_int./sqrt(ref_int'*ref_int);
 %%%%%%%%%%%%%%%%%%%%%%%
 
 % time series
-t = ts:ts:X_p;
+t_crop = ts:ts:X_p;
 
 % TODO: measure CFO
 
@@ -94,7 +99,7 @@ t = ts:ts:X_p;
 cfo = 0 * 2 * pi;
 
 % local oscillator
-lo = exp(1j*cfo*t);
+lo = exp(1j*cfo*t_crop);
 
 % mix
 X = X .* lo';
@@ -151,7 +156,9 @@ for idx = 1:n_awr
     % average
     X_s = (idx-1)*n_pav+1;
     X_e = idx * n_pav;
-    X_ave = sum(X_ave(:,X_s:X_e), 2)./(n_pav);
+    % because PN sequences are coherent over averaging window
+    % just take the mean
+    X_ave = mean(X_ave(:,X_s:X_e), 2);
 
     % add cyclic prefix and sufix
     X_ave_cp(:,idx) = [X_ave(end/2+1:end); X_ave; X_ave(1:end/2)];
@@ -172,40 +179,52 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % CROSS CORRELATION
+% Notes: See http://tinyurl.com/hfgyy72
+%        section 2.3 Sliding Correlator Theory
+%        section 2.4 Implementation of a Sliding Correlator Measurement System
+%        section 2.5 Analysis of Impulse Response Data
+%
+%        This routine uses the Swept Time-Delay Cross-Correlation method
 %%%%%%%%%%%%%%%%%%%%%%%
 
 % preallocate array
-X_xcr(pg_int/dc,n_awr) = 0;
+P(pg_int/dc,n_awr) = 0;
 
 for idx = 1:n_awr
     
     % cross-correlaton
-    X_xcr_p = xcorr(X_filt_int(:,idx), ref_int_norm);
+    h_b_cp = xcorr(X_filt_int(:,idx), ref_int_norm);
 
     % remove cyclic prefix and sufix
-    X_xcr(:,idx) = X_xcr_p(2*pg_int/dc+1:3*pg_int/dc);
+    h_b = h_b_cp(2*pg_int/dc+1:3*pg_int/dc);
+    
+    % calculate Power Delay Profile [RAP96a, (4.15)]
+    P(:,idx) = 1 * abs(h_b).^2;
+    
+    % channel response matrix
+    h_b_vec(:,idx) = h_b;
     
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% AVERAGE MULTIPLE CROSS CORRELATIONS
+% AVERAGE MULTIPLE POWER DELAY PROFILES
 %%%%%%%%%%%%%%%%%%%%%%%
 
-X_xcr_ave = sum(abs(X_xcr),2) ./ size(X_xcr,2);
+P_ave = mean(abs(P),2);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% MULTI-PATH PEAK-TO-AVERAGE RATIO (PAR) 
+% POWER DELAY PROFILE PEAK-TO-AVERAGE RATIO (PAR)
 %%%%%%%%%%%%%%%%%%%%%%%
 
 % find peak
-[~,idx] = max(X_xcr_ave);
+[~,idx] = max(P_ave);
 
 % calculate peak to average (PAR) ratio)
-X_xcr_ave_par = max(X_xcr_ave) / mean(X_xcr_ave);
+X_xcr_ave_par = max(P_ave) / mean(P_ave);
 
 % if there's no strong multi-path peak then there's nothing you can do!!!
-if (X_xcr_ave_par < 3)
+if (X_xcr_ave_par < 10)
     error('No sufficiently strong multi-paths'); 
 end
 
@@ -214,11 +233,12 @@ end
 % Note: this puts peak in center of plot
 %%%%%%%%%%%%%%%%%%%%%%%
 
-cs_len = size(X_xcr_ave,1);
+cs_len = size(P_ave,1);
 cs_mid = floor(cs_len / 2);
 
-X_xcr_ave = circshift(X_xcr_ave, cs_mid - idx);
-X_xcr = circshift(X_xcr, cs_mid - idx, 1);
+P_ave = circshift(P_ave, cs_mid - idx);
+P = circshift(P, cs_mid - idx, 1);
+h_b_vec = circshift(h_b_vec, cs_mid - idx, 1);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -228,17 +248,17 @@ X_xcr = circshift(X_xcr, cs_mid - idx, 1);
 %%%%%%%%%%%%%%%%%%%%%%%
 
 % measure change in phase angle of largest multi-path
-xcr_tap = X_xcr(cs_mid,:);
-xcr_tap_ang = unwrap(angle(xcr_tap));
-xcr_tap_ang_diff = diff(xcr_tap_ang);
+P_tap = P(cs_mid,:);
+P_tap_ang = unwrap(angle(P_tap));
+P_tap_ang_diff_rad = diff(P_tap_ang);
 
 % generate y-axis (for plots)
 tcfo_int = n_pav * period * ts;
-tcfo_mp = tcfo_int * length(xcr_tap_ang_diff);
+tcfo_mp = tcfo_int * length(P_tap_ang_diff_rad);
 tcfo = (tcfo_int):tcfo_int:tcfo_mp;
 
 % scale to Hertz
-xcr_tap_ang_diff = xcr_tap_ang_diff / (2 * pi * tcfo_int);
+P_tap_ang_diff_hz = P_tap_ang_diff_rad / (2 * pi * tcfo_int);
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % MULTI-PATH STATISTICS
@@ -251,22 +271,56 @@ xcr_tap_ang_diff = xcr_tap_ang_diff / (2 * pi * tcfo_int);
 spread = 256;
 
 % window multipath vectors to region of interest (i.e. center +/- spread)
-multipath_vec = X_xcr(cs_mid-spread+1:cs_mid+spread,:);
+P_crop = P(cs_mid-spread+1:cs_mid+spread,:);
+P_crop_db = 10*log10(P_crop);
+P_crop_ave = P_ave(cs_mid-spread+1:cs_mid+spread);
+P_crop_ave_db = 10*log10(P_crop_ave);
+
+h_b_vec_crop = h_b_vec(cs_mid-spread+1:cs_mid+spread,:);
+
+% noise threshold in power
+m = max(P_crop_ave);
+ds_thresh = m / (10^(rms_thresh/10));
+ds_thresh_db = 10*log10(ds_thresh);
+
+% threshhold vector
+P_crop_ave_zidx = find(P_crop_ave < ds_thresh);
+P_crop_ave_thresh = P_crop_ave;
+P_crop_ave_thresh(P_crop_ave_zidx) = 0;
+P_crop_ave_thresh_db = 10 * log10(P_crop_ave_thresh);
+
+% find first multi-path
+P_crop_ave_thresh_pidx = find(abs(P_crop_ave_thresh) > 0);
+t_first_multipath = P_crop_ave_thresh_pidx(1) * ts_int;
+
+t_crop = (ts_int:ts_int:length(P_crop_ave_thresh)*ts_int)'...
+         - t_first_multipath;
+t_crop_us = t_crop * 1e6;
+
+
+tau = sum(P_crop_ave_thresh .* t_crop) / sum(P_crop_ave_thresh);
+tau2 = sum(P_crop_ave_thresh .* (t_crop .^ 2)) / sum(P_crop_ave_thresh);
+sigma_tau = sqrt(tau2 - tau^2);
+
+% maximum excess delay
+med = t_crop(P_crop_ave_thresh_pidx(end));
+
+% coherence bandwidth (0.9 frequency correlation)
+bc = 1/(50 * sigma_tau);
+
+
+
 
 % generate x-axis (for plots)
-t_mp = length(multipath_vec(:,1)) / (fs * usf);
-t = ts_int:ts_int:t_mp;
-t2d = t' * ones(1,length(multipath_vec(1,:)));
+t2d = t_crop * ones(1,length(P_crop(1,:)));
+t2d_us = t2d * 1e6;
 
 % generate y-axis (for plots)
-y_mp = length(multipath_vec(1,:));
+y_mp = size(P_crop,2);
 y = (1/dplr):(1/dplr):(y_mp/dplr);
-y2d = ones(length(multipath_vec(:,1)),1) * y;
+y2d = ones(length(P_crop_ave),1) * y;
 
-% SUM ALL MULTIPATH AVERAGING WINDOWS TOGETHER (i.e. ENTIRE RECORDING)
-% Note: THIS IS NOT YET SCALED PROPERLY.. PROBABLY NEED TO DIVIDE
-%       BY NUMBER OF AVERAGING WINDOWS THAT ARE BEING SUMMED???
-multipath_ave = X_xcr_ave(cs_mid-spread+1:cs_mid+spread,:);
+
 
 % TODO: PASS BACK MULTI-PATH STATISTICS TO CALLING FUNCTION SO THAT
 %       THEY MAY BE TABULATED
@@ -276,11 +330,23 @@ multipath_ave = X_xcr_ave(cs_mid-spread+1:cs_mid+spread,:);
 % MEASURE DOPPLER POWER SPECTRUM
 %%%%%%%%%%%%%%%%%%%%%%%
 
-dfs = -dplr+(dplr/size(multipath_vec,2)*2):dplr/size(multipath_vec,2)*2:dplr;
-dps = abs(fftshift(fft(multipath_vec,[],2),2))';
+%P_d_crop = P_crop(:,:);
+P_d_crop = h_b_vec_crop;
+
+%dfs_y_mp = size(P_d_crop,1);
+%dfs_y = (1/dplr):(1/dplr):(dfs_y_mp/dplr);
+%dfs2d_y = dfs_y * ones(1,size(P_d_crop,2));
+
+doppler_step = (dplr/size(P_d_crop,2)*2);
+dfs = -dplr:doppler_step:dplr-doppler_step;
+dfs2d_x = ones(size(P_d_crop,1),1) * dfs;
+dps = abs(fftshift(fft(P_d_crop,[],2),2))';
 
 % normalize power
 dps = dps ./ max(max(abs(dps)));
+
+dps_db = 10*log10(dps);
+
 
 % TODO: PASS BACK DOPPLER STATISTICS TO CALLING FUNCTION SO THAT THEY
 %       MAY BE TABULATED
@@ -295,13 +361,21 @@ dps = dps ./ max(max(abs(dps)));
 % MEASURE POWER
 %%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO
+% calculate receive power (above noise)
+% divide by process gain and up-sample factor
+P_total = sum(P_crop_ave_thresh - ds_thresh) / pg / usf;
+% convert to decible Watts
+P_total_dbW = 10 * log10(P_total);
+% convert to decibel mW
+P_total_dbm = P_total_dbW + 30;
+
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % MEASURE PATH LOSS
 %%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO
+% calculate path loss
+P_loss_db = tx_dbm - P_total_dbm + rxant_db + txant_db;
 
 % TODO: PASS BACK PATH LOSS TO CALLING FUNCTION SO THAT STATISTICS CAN
 %       BE MEASURED.
@@ -311,20 +385,43 @@ dps = dps ./ max(max(abs(dps)));
 % PLOTS PLOTS PLOTS
 %%%%%%%%%%%%%%%%%%%%%%%
 
-figure;
-plot(dfs, dps);
-xlabel('frequency (Hz)');
-ylabel('normalized power');
-title('Dopper Power Spectrum');
+disp(sprintf(['Mean Excess Delay = %0.1f(ns)\n'...
+              'RMS Delay Spread = %0.1f(ns)\n'...
+              'Max Excess Delay < %0.0fdB = %0.1f(ns)\n'...
+              'Max Coherence Bandwidth (>0.9 correlation) = %0.0f(Hz)\n'...
+              'Total Receive Power = %0.1fdBm\n',...
+              'Total Path Loss = %0.1fdB\n'],...
+              tau*1e9, sigma_tau*1e9, rms_thresh,...
+              med*1e9, bc, P_total_dbm, P_loss_db ));
 
 figure;
-surf(dps,'EdgeColor','none');
-set(gca,'ZScale','log');
-view(0, 90);
-title('Dopper Power Spectrum');
+plot(t_crop_us, [P_crop_ave_db P_crop_ave_thresh_db], '-o');
+xlim([t_crop_us(1) t_crop_us(end)]);
+xlabel('time (\mus)');
+ylabel('relative signal level (dB)');
+hline(ds_thresh_db,'r:',sprintf('threshold from peak -%0.0fdB', rms_thresh));
+title({'Average Multipath Power Delay Profile',...
+       sprintf('file name: [%s]', title_str)});
+
+%figure;
+%plot(dfs, dps_db, '-o');
+%xlim([-dplr dplr]);
+%xlabel('frequency (Hz)');
+%ylabel('normalized power');
+%title('Dopper Power Spectrum');
 
 figure;
-plot(tcfo, xcr_tap_ang_diff);
+surf(dfs2d_x, t2d_us, dps_db','EdgeColor','none');
+ylim([t2d_us(1) t2d_us(end)]);
+ylabel('delay tap (\mus)');
+xlabel('Doppler frequency (Hz)');
+zlabel('normalized power (dB)');
+%view(0, 90);
+title('Dopper Spread');
+
+figure;
+plot(tcfo, P_tap_ang_diff_hz);
+xlim([tcfo(1) tcfo(end)]);
 ylim([-1 1]);
 xlabel('time (s)');
 ylabel('frequency (Hz)');
@@ -336,27 +433,29 @@ xa = X_filt(1000+1:1000:end);
 plot(ta,abs(xa));
 xlabel('time (s)');
 ylabel('amplitude (Volts @ 1-Ohm)');
-title('test recording');
+xlim([ta(1) ta(end)]);
+title({'Test Recording',...
+       sprintf('file name: [%s]', title_str)});
+
 
 figure;
-plot(t, multipath_ave);
-hline(2e-10,'r:','threshold');
-title('Average Multipath');
-xlabel('time (s)');
+plot(t_crop_us, P_crop_db);
+xlim([t_crop_us(1) t_crop_us(end)]);
+xlabel('time (\mus)');
+ylabel('relative signal level (dB)');
+title({'All Multipath Power Delay Profiles',...
+       sprintf('file name: [%s]', title_str)});
 
 figure;
-plot(t, abs(multipath_vec));
-xlabel('time (s)');
-ylabel('power (W)');
-title('Delay Spreads');
-
-figure;
-surf(t2d,y2d,abs(multipath_vec),'EdgeColor','none');
-view(0, 90);
-xlabel('spread (s)');
+surf(t2d_us,y2d,P_crop_db,'EdgeColor','none');
+xlim([t2d_us(1) t2d_us(end)]);
+ylim([y2d(1) y2d(end)]);
+view(90, 90);
+xlabel('spread (\mus)');
 ylabel('time (s)');
-zlabel('power (W)');
-title('Delay Spreads');
+zlabel('relative signal level (dB)');
+title({'All Multipath Power Delay Profiles',...
+       sprintf('file name: [%s]', title_str)});
 
 autoArrangeFigures;
 
