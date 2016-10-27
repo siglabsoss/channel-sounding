@@ -92,7 +92,7 @@ class cal_rx(gr.top_block):
 
 def main(top_block_cls=cal_rx, options=None):
 
-    raw_input("Connect 10nW(-50dBm) CW calibration source at 2,451,625.000 Hz and press Enter to continue...")
+    raw_input("Connect 10nW(-50dBm) CW calibration source at 915E6 + ? Hz and press Enter to continue...")
 
     tb = top_block_cls()
 
