@@ -1,9 +1,10 @@
 
+figure
+
 x = 100:50:1500;
 IEEE80216 = PL_IEEE80216d(2450e6,x);
 
 plot(x, IEEE80216, 'k')
-figure
 plot(parsed2450(1:63,10),parsed2450(1:63,11),'or')
 hold on
 plot(parsed2450(64:93,10),parsed2450(64:93,11),'ob')

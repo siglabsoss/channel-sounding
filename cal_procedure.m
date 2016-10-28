@@ -22,7 +22,7 @@
 % Author: Ameya Patil <ameya@ameya>
 % Created: 2016-10-13
 
-function [gain_error_db, psd_n_cal_dbmhz] = cal_proceedure (cal_recording)
+function [gain_error_y_int_db, psd_n_cal_dbmhz] = cal_procedure (cal_recording, rx_dsf, tx_dsf, tone_freq)
 
 %
 % This function is expecting a time series as follows:
@@ -35,15 +35,19 @@ function [gain_error_db, psd_n_cal_dbmhz] = cal_proceedure (cal_recording)
 % The first @@@@ period should be 1.000 seconds
 % Each subsequent period should be 1.000 seconds and have gain_steps gain
 %
+% rx_dsf : RX down sample factor compared to max SDR rate (6.25e6)
+% tx_dsf : TX down sample factor compared to max SDR rate (6.25e6)
 
 % load Siglabs Utilities
 %o_util;
 
 % cal file sample rate
-sps = 6.25e6;
+%sps = 6.25e6/4;
+sps = 6.25e6/rx_dsf;
 
 % samples per test sequence
-spts = 3.125e6;
+%spts = 3.125e6/4;
+spts = 3.125e6/rx_dsf;
 
 % cal single tone power (dBm)
 cstp_dbm = -50;
@@ -57,16 +61,22 @@ stszpi = sps*0.100 + 1;
 etszpi = sps*0.400;
 
 % calibration channel start (Hz)
-ccs = 1620e3;
+%ccs = 1620e3/4/8;
+%ccs = 1620e3/tx_dsf;
+ccs = tone_freq - 10e3;
 
 % calibration channel end (Hz)
-cce = 1630e3;
+%cce = 1630e3/4/8;
+%cce = 1630e3/tx_dsf;
+cce = tone_freq + 10e3;
 
 % noise channel start (Hz)
-ncs = 625e3;
+%ncs = 625e3/4;
+ncs = 625e3/rx_dsf;
 
 % noise channel end (Hz)
-nce = 2500e3;
+%nce = 2500e3/4;
+nce = 2500e3/rx_dsf;
 
 % gain steps dB (as recorded)
 sdr_gain_steps = 0:31;
@@ -114,6 +124,8 @@ for i = 1:32;
     meas_gain_error_db(i) = power_dbm - cstp_dbm;
 end
 
+gain_error_y_int_db = meas_gain_error_db(1);
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % CALCULATE NOISE FLOOR
@@ -124,7 +136,8 @@ for i = 1:32;
    [out, powerW, rmsV, psd_dbWhz] = cal_filter(noise_recording(:,i),sps,ncs,nce);
 
     % band power spectral density
-    psd_n_cal_dbWhz(i) = psd_dbWhz - meas_gain_error_db(i);
+    psd_n_cal_dbWhz(i) = psd_dbWhz - (gain_error_y_int_db + sdr_gain_steps(i));
+    %psd_n_cal_dbWhz(i) = psd_dbWhz - meas_gain_error_db(i);
     psd_n_cal_dbmhz(i) = psd_n_cal_dbWhz(i) + 30;
 end
 
@@ -143,7 +156,7 @@ for i = 1:32;
 
    % band power
    power_dbW = 10 * log10(powerW);
-   power_dbm = power_dbm + 30;
+   power_dbm = power_dbW + 30;
    
    fs_cal_dbm(i) = power_dbm - meas_gain_error_db(i);
 end
@@ -175,9 +188,7 @@ xlabel('SDR gain value (db)');
 ylabel('Full Scale Single Tone Input (dBm)');
 
 subplot(2,2,4);
-yint = meas_gain_error_db(1);
-gain_error_db = yint;
-expected_gain_error = sdr_gain_steps + yint;
+expected_gain_error = sdr_gain_steps + gain_error_y_int_db;
 plot(sdr_gain_steps, [meas_gain_error_db; expected_gain_error]);
 title('Siglabs Suitcase Receiver S/N 001');
 xlabel('SDR gain value (db)');

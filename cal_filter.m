@@ -16,7 +16,7 @@ bpfs = round(flt_start/rbw + (l/2) + 1);
 bpfe = round(flt_stop/rbw + (l/2));
 
 % fractional bandwidth
-bw_f = (bpfe - bpfs) / l;
+bw_f = (bpfs - bpfe) / l;
 
 % compute FT of last half of the time series
 inft = fftshift(fft(in));
