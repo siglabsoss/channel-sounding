@@ -25,10 +25,10 @@ class cal_rx(gr.top_block):
         # Variables
         ##################################################
         self.txrx_gain = txrx_gain = 0
-        self.samp_rate = samp_rate = 1E8/16
-        self.samp_freq = samp_freq = 915E6
-        self.rx_antenna = rx_antenna = "TX/RX"
-        self.output_file = output_file = "cal_rx_step915.raw"
+        self.samp_rate = samp_rate = 1E8/(2**6)
+        self.samp_freq = samp_freq = 2.45E9
+        self.rx_antenna = rx_antenna = "RX2"
+        self.output_file = output_file = "cal_rx_step.raw"
 
         ##################################################
         # Blocks
@@ -92,7 +92,7 @@ class cal_rx(gr.top_block):
 
 def main(top_block_cls=cal_rx, options=None):
 
-    raw_input("Connect 10nW(-50dBm) CW calibration source at 915E6 + ? Hz and press Enter to continue...")
+    raw_input("Connect 10nW(-50dBm) CW calibration source at 2,451,625.000 Hz and press Enter to continue...")
 
     tb = top_block_cls()
 

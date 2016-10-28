@@ -25,7 +25,7 @@ class cal_rx(gr.top_block):
         # Variables
         ##################################################
         self.txrx_gain = txrx_gain = 0
-        self.samp_rate = samp_rate = 1E8/16
+        self.samp_rate = samp_rate = 1E8/(2**6)
         self.samp_freq = samp_freq = 915E6
         self.rx_antenna = rx_antenna = "TX/RX"
         self.output_file = output_file = "cal_rx_step915.raw"
