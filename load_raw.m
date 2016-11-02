@@ -11,14 +11,30 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function out = load_raw(file_name, calibration_factor)
+function out = load_raw(file_name, calibration_factor, sps, start, stop)
 
 f = dir(file_name);
-len = f.bytes;
+len = f.bytes / 4;
 
 fid = fopen(file_name, 'r');
 
-b = fread(fid, len/4, 'single');
+start_s = start * sps * 2;
+
+if( start_s > len )
+    error('start begins after end of file!');
+end
+
+stop_s = stop * sps * 2;
+
+if( stop_s > len )
+    disp(sprintf('stop is after end of file... new stop = %d seconds', len / (sps * 2)));
+    
+    stop_s = len;
+end
+
+fseek(fid, start_s * 4, 0);
+
+b = fread(fid, stop_s - start_s, 'single');
 
 fclose(fid);
 
