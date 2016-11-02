@@ -68,7 +68,7 @@ X_p = X_l / fs;
 thresh = 3e-6;
 
 % RMS delay spread threshold (dB)
-rms_thresh = 10;
+rms_thresh = 23;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -240,6 +240,30 @@ P_ave = circshift(P_ave, cs_mid - idx);
 P = circshift(P, cs_mid - idx, 1);
 h_b_vec = circshift(h_b_vec, cs_mid - idx, 1);
 
+%%%%%%%%%%%%%%%%%%%%%%%
+% HACK TO MEASURE MULTIPATH... REMOVE WHEN NOT USED
+%%%%%%%%%%%%%%%%%%%%%%%
+
+idx_distance = floor((pg_int*2/2)/usf)*usf - usf;
+idx_start = cs_mid - idx_distance;
+idx_stop = cs_mid + idx_distance;
+
+P_ave_temp = P_ave(idx_start:usf:idx_stop);
+h_b_vec_temp = h_b_vec(idx_start:usf:idx_stop,:);
+P_temp = P(idx_start:usf:idx_stop,:);
+
+%override variabls
+P_ave = P_ave_temp;
+P = P_temp;
+h_b_vec = h_b_vec_temp;
+cs_mid = cs_mid / usf;
+cs_len = cs_len / usf;
+usf = 1;
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% END HACK
+%%%%%%%%%%%%%%%%%%%%%%%
+
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % MEASURE CFO
@@ -268,7 +292,8 @@ P_tap_ang_diff_hz = P_tap_ang_diff_rad / (2 * pi * tcfo_int);
 %spread = floor (10e-6 / ts_int);
 
 % capture 256 samples before and after peak
-spread = 256;
+%HACK HERE
+spread = floor(256 / 5);
 
 % window multipath vectors to region of interest (i.e. center +/- spread)
 P_crop = P(cs_mid-spread+1:cs_mid+spread,:);
