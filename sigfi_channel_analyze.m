@@ -21,7 +21,7 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function [P_loss_db, tau, sigma_tau] = sigfi_channel_analyze(X, title_str, fs, ref, fs_ref, tx_dbm, txant_db, rxant_db)
+function [rms_thresh_db, P_loss_db, P_loss_h_b_fft_pwr_db, tau, tau2, sigma_tau, med] = sigfi_channel_analyze(X, title_str, fs, ref, fs_ref, tx_dbm, txant_db, rxant_db)
 
 % sample rate to filter sample rate ratio
 % round because floating point error will cause indexing error
@@ -68,7 +68,7 @@ X_p = X_l / fs;
 thresh = 3e-6;
 
 % RMS delay spread threshold (dB)
-rms_thresh = 23;
+rms_thresh_db = 23;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
@@ -259,6 +259,8 @@ h_b_vec = h_b_vec_temp;
 cs_mid = cs_mid / usf;
 cs_len = cs_len / usf;
 usf = 1;
+ts_int = ts;
+fs_int = fs;
 
 %%%%%%%%%%%%%%%%%%%%%%%
 % END HACK
@@ -284,16 +286,17 @@ tcfo = (tcfo_int):tcfo_int:tcfo_mp;
 % scale to Hertz
 P_tap_ang_diff_hz = P_tap_ang_diff_rad / (2 * pi * tcfo_int);
 
+
 %%%%%%%%%%%%%%%%%%%%%%%
 % MULTI-PATH STATISTICS
 %%%%%%%%%%%%%%%%%%%%%%%
 
 % capture 10us before and after
-%spread = floor (10e-6 / ts_int);
+spread = floor (4e-6 / ts_int);
 
 % capture 256 samples before and after peak
 %HACK HERE
-spread = floor(256 / 5);
+%spread = floor(256 / 5);
 
 % window multipath vectors to region of interest (i.e. center +/- spread)
 P_crop = P(cs_mid-spread+1:cs_mid+spread,:);
@@ -305,7 +308,14 @@ h_b_vec_crop = h_b_vec(cs_mid-spread+1:cs_mid+spread,:);
 
 % noise threshold in power
 m = max(P_crop_ave);
-ds_thresh = m / (10^(rms_thresh/10));
+
+%HACK HERE
+X_xcr_ave_par_db = 10*log10(X_xcr_ave_par);
+rms_thresh_db = X_xcr_ave_par_db - 3;
+rms_thresh_db = X_xcr_ave_par_db + 20;
+%END HACK
+
+ds_thresh = m / (10^(rms_thresh_db/10));
 ds_thresh_db = 10*log10(ds_thresh);
 
 % threshhold vector
@@ -352,20 +362,44 @@ y2d = ones(length(P_crop_ave),1) * y;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
+% CHANNEL RESPONSE
+%%%%%%%%%%%%%%%%%%%%%%%
+
+h_b_len = size(h_b_vec_crop,1);
+h_b_vec_fft = fftshift(fft(h_b_vec_crop, h_b_len, 1));
+P_h_b_vec_fft = abs(h_b_vec_fft).^2;
+P_h_b_ave_fft = mean(P_h_b_vec_fft, 2);
+P_h_b_ave_fft_db = 10 * log10(P_h_b_ave_fft);
+
+% CHANNEL POWER MEASURED USING CHANNEL RESPONSE
+
+P_h_b = mean(P_h_b_ave_fft);
+P_h_b_db = 10 * log10(P_h_b);
+
+% calibration
+% note: We don't yet have a calibration mask for the transmit equipment.
+%       It can be synthesized by taking the FFT of the TX waveform,
+%       but it doesn't take into account the transmit hardware filters.
+%h_b_fft_cal = abs(fftshift(fft(ref)));
+%h_b_fft_cal = h_b_fft_cal(cs_mid/2-spread+1:cs_mid/2+spread);
+%h_b_fft_db = h_b_fft_cal - h_b_fft_db;
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
 % MEASURE DOPPLER POWER SPECTRUM
 %%%%%%%%%%%%%%%%%%%%%%%
 
 %P_d_crop = P_crop(:,:);
-P_d_crop = h_b_vec_crop;
+d_h_b_crop = h_b_vec_crop;
 
 %dfs_y_mp = size(P_d_crop,1);
 %dfs_y = (1/dplr):(1/dplr):(dfs_y_mp/dplr);
 %dfs2d_y = dfs_y * ones(1,size(P_d_crop,2));
 
-doppler_step = (dplr/size(P_d_crop,2)*2);
+doppler_step = (dplr/size(d_h_b_crop,2)*2);
 dfs = -dplr:doppler_step:dplr-doppler_step;
-dfs2d_x = ones(size(P_d_crop,1),1) * dfs;
-dps = abs(fftshift(fft(P_d_crop,[],2),2))';
+dfs2d_x = ones(size(d_h_b_crop,1),1) * dfs;
+dps = abs(fftshift(fft(d_h_b_crop,[],2),2))';
 
 % normalize power
 dps = dps ./ max(max(abs(dps)));
@@ -402,6 +436,9 @@ P_total_dbm = P_total_dbW + 30;
 % calculate path loss
 P_loss_db = tx_dbm - P_total_dbm + rxant_db + txant_db;
 
+% calculate path loss using channel response energy
+P_loss_h_b_fft_pwr_db = tx_dbm - P_h_b_db + rxant_db + txant_db;
+
 % TODO: PASS BACK PATH LOSS TO CALLING FUNCTION SO THAT STATISTICS CAN
 %       BE MEASURED.
 
@@ -415,16 +452,19 @@ disp(sprintf(['Mean Excess Delay = %0.1f(ns)\n'...
               'Max Excess Delay < %0.0fdB = %0.1f(ns)\n'...
               'Max Coherence Bandwidth (>0.9 correlation) = %0.0f(Hz)\n'...
               'Total Receive Power = %0.1fdBm\n',...
-              'Total Path Loss = %0.1fdB\n'],...
-              tau*1e9, sigma_tau*1e9, rms_thresh,...
-              med*1e9, bc, P_total_dbm, P_loss_db ));
+              'Total Path Loss = %0.1fdB\n\n',...
+              'Channel Response Energy (fft(h_b)) = %0.1fdBm\n',...
+              'Total Path Loss (using CRE) = %0.1fdB\n'],...
+              tau*1e9, sigma_tau*1e9, rms_thresh_db,...
+              med*1e9, bc, P_total_dbm, P_loss_db,...
+              P_h_b_db, P_loss_h_b_fft_pwr_db ));
 
 figure;
 plot(t_crop_us, [P_crop_ave_db P_crop_ave_thresh_db], '-o');
 xlim([t_crop_us(1) t_crop_us(end)]);
 xlabel('time (\mus)');
 ylabel('relative signal level (dB)');
-hline(ds_thresh_db,'r:',sprintf('threshold from peak -%0.0fdB', rms_thresh));
+hline(ds_thresh_db,'r:',sprintf('threshold from peak -%0.0fdB', rms_thresh_db));
 title({'Average Multipath Power Delay Profile',...
        sprintf('file name: [%s]', title_str)});
 
@@ -434,6 +474,13 @@ title({'Average Multipath Power Delay Profile',...
 %xlabel('frequency (Hz)');
 %ylabel('normalized power');
 %title('Dopper Power Spectrum');
+
+figure;
+plot(P_h_b_ave_fft_db);
+xlabel('unscaled frequency');
+ylabel('relative signal level (dB)');
+title({'Channel Response',...
+       sprintf('file name: [%s]', title_str)});
 
 figure;
 surf(dfs2d_x, t2d_us, dps_db','EdgeColor','none');

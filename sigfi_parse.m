@@ -319,7 +319,7 @@ load z:\161017-1_backpack_channel_sounding\tx.mat;
 
 for idx = 1:num_entries
     test = A{1,idx}
-    X = load_raw(test{4},test{14});
+    X = load_raw(test{4},test{14}, 6.25e6, 5, 55);
     
     close all;
     
@@ -328,7 +328,7 @@ for idx = 1:num_entries
     sigma_tau = 0;
     
     try
-        [P_loss_db, tau, sigma_tau] = sigfi_channel_analyze(X(20*end/120:100*end/120), test{5}, test{7}, tx_frame, test{8}, test{9}, test{10}, test{11})
+        [rms_thresh_db, P_loss_db, P_loss_h_b_fft_pwr_db, tau, tau2, sigma_tau, med] = sigfi_channel_analyze(X(20*end/120:100*end/120), test{5}, test{7}, tx_frame, test{8}, test{9}, test{10}, test{11})
     catch ME
         disp('issue with sigfi_channel_analyze()');
         disp('continuing with next data set');
@@ -337,7 +337,11 @@ for idx = 1:num_entries
 
     
     P_loss_db_vec(idx) = P_loss_db;
+    P_loss_h_b_fft_pwr_db_vec(idx) = P_loss_h_b_fft_pwr_db;
     tau_vec(idx) = tau;
     sigma_tau_vec(idx) = sigma_tau;
+    rms_thresh_db_vec(idx) = rms_thresh_db;
+    tau2_vec(idx) = tau2;
+    med_vec(idx) = med;
 end
     
