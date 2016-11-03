@@ -312,7 +312,6 @@ m = max(P_crop_ave);
 %HACK HERE
 X_xcr_ave_par_db = 10*log10(X_xcr_ave_par);
 rms_thresh_db = X_xcr_ave_par_db - 3;
-rms_thresh_db = X_xcr_ave_par_db + 20;
 %END HACK
 
 ds_thresh = m / (10^(rms_thresh_db/10));
