@@ -37,7 +37,7 @@ def conv_file(iin, oout):
 
     print 'bytes dumped from ram'
 
-    sio.savemat(oout, {varname: complex}, do_compression=True)
+    sio.savemat(oout, {varname: complex}, format='4', do_compression=True)
 
     print 'bytes saved to disk'
 
@@ -78,7 +78,8 @@ if __name__ == '__main__':
 
     for root, dirs, files in os.walk(path_in):
         for f in files:
-            full_paths.append(os.path.join(root, f))
+            if f[-4:] == '.raw':
+                full_paths.append(os.path.join(root, f))
 
 
         # print '--------'
@@ -91,7 +92,8 @@ if __name__ == '__main__':
             # print os.path.join(compfolder, files[0])
 
             for f in files:
-                full_paths_out.append(os.path.join(compfolder, f))
+                if f[-4:] == '.raw':
+                    full_paths_out.append(os.path.join(compfolder, f))
 
             # print "pass"
         # data2 = [os.path.join(root, path_out) for f in files]
@@ -113,6 +115,7 @@ if __name__ == '__main__':
     for i in range(len(full_paths)):
         pi = full_paths[i]
         po = full_paths_out[i]
+        # print pi
 
         conv_file(pi,po)
 
