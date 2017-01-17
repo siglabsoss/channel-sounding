@@ -1,0 +1,117 @@
+all : drive_rx.py drive_tx.py  _rx_905E6.py  _rx_910E6.py  _rx_915E6.py  _rx_920E6.py  _rx_923E6.py  _tx_905E6.py  _tx_910E6.py  _tx_915E6.py  _tx_920E6.py  _tx_923E6.py 
+
+drive_rx.py: drive-rx.grc
+	grcc drive-rx.grc -d .
+
+drive_tx.py: drive-tx.grc
+	grcc drive-tx.grc -d .
+
+clean:
+	rm -f drive_rx.py drive_tx.py top_block.py *orig *pyc _*
+
+_rx_905E6.py: drive_rx.py _premake_run
+	cp drive_rx.py _rx_905E6.py
+	patch _rx_905E6.py < _patch_905E6.patch
+	patch _rx_905E6.py < _patch_output_one_905E6.patch
+	patch _rx_905E6.py < _patch_gain_3.patch
+	patch _rx_905E6.py < sleep4.patch
+
+
+_rx_910E6.py: drive_rx.py _premake_run
+	cp drive_rx.py _rx_910E6.py
+	patch _rx_910E6.py < _patch_910E6.patch
+	patch _rx_910E6.py < _patch_output_one_910E6.patch
+	patch _rx_910E6.py < _patch_gain_3.patch
+	patch _rx_910E6.py < sleep4.patch
+
+
+_rx_915E6.py: drive_rx.py _premake_run
+	cp drive_rx.py _rx_915E6.py
+	patch _rx_915E6.py < _patch_915E6.patch
+	patch _rx_915E6.py < _patch_output_one_915E6.patch
+	patch _rx_915E6.py < _patch_gain_3.patch
+	patch _rx_915E6.py < sleep4.patch
+
+
+_rx_920E6.py: drive_rx.py _premake_run
+	cp drive_rx.py _rx_920E6.py
+	patch _rx_920E6.py < _patch_920E6.patch
+	patch _rx_920E6.py < _patch_output_one_920E6.patch
+	patch _rx_920E6.py < _patch_gain_3.patch
+	patch _rx_920E6.py < sleep4.patch
+
+
+_rx_923E6.py: drive_rx.py _premake_run
+	cp drive_rx.py _rx_923E6.py
+	patch _rx_923E6.py < _patch_923E6.patch
+	patch _rx_923E6.py < _patch_output_one_923E6.patch
+	patch _rx_923E6.py < _patch_gain_3.patch
+	patch _rx_923E6.py < sleep4.patch
+
+
+_tx_905E6.py: drive_tx.py _premake_run
+	cp drive_tx.py _tx_905E6.py
+	patch _tx_905E6.py < _patch_905E6.patch
+	patch _tx_905E6.py < _patch_gain_5.patch
+	patch _tx_905E6.py < sleep2.patch
+
+
+_tx_910E6.py: drive_tx.py _premake_run
+	cp drive_tx.py _tx_910E6.py
+	patch _tx_910E6.py < _patch_910E6.patch
+	patch _tx_910E6.py < _patch_gain_5.patch
+	patch _tx_910E6.py < sleep2.patch
+
+
+_tx_915E6.py: drive_tx.py _premake_run
+	cp drive_tx.py _tx_915E6.py
+	patch _tx_915E6.py < _patch_915E6.patch
+	patch _tx_915E6.py < _patch_gain_5.patch
+	patch _tx_915E6.py < sleep2.patch
+
+
+_tx_920E6.py: drive_tx.py _premake_run
+	cp drive_tx.py _tx_920E6.py
+	patch _tx_920E6.py < _patch_920E6.patch
+	patch _tx_920E6.py < _patch_gain_5.patch
+	patch _tx_920E6.py < sleep2.patch
+
+
+_tx_923E6.py: drive_tx.py _premake_run
+	cp drive_tx.py _tx_923E6.py
+	patch _tx_923E6.py < _patch_923E6.patch
+	patch _tx_923E6.py < _patch_gain_5.patch
+	patch _tx_923E6.py < sleep2.patch
+
+
+runrx:  _rx_905E6.py  _rx_910E6.py  _rx_915E6.py  _rx_920E6.py  _rx_923E6.py 
+	sudo ls > /dev/null
+	sudo ./_rx_905E6.py
+	sudo ./_rx_910E6.py
+	sudo ./_rx_915E6.py
+	sudo ./_rx_920E6.py
+	sudo ./_rx_923E6.py
+	@sudo touch /mnt/usb1/test_one/"`date`"
+	@echo made these files
+	@echo 
+	ls -lsh /mnt/usb1/test_one
+
+
+runtx:  _tx_905E6.py  _tx_910E6.py  _tx_915E6.py  _tx_920E6.py  _tx_923E6.py 
+	sudo ls > /dev/null
+	sudo ./_tx_905E6.py
+	sleep 1.3
+	sudo ./_tx_910E6.py
+	sleep 1.3
+	sudo ./_tx_915E6.py
+	sleep 1.3
+	sudo ./_tx_920E6.py
+	sleep 1.3
+	sudo ./_tx_923E6.py
+	sleep 1.3
+
+
+
+.PHONY: runrx runtx
+
+
