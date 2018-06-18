@@ -446,6 +446,9 @@ P_loss_h_b_fft_pwr_db = tx_dbm - P_h_b_db + rxant_db + txant_db;
 % PLOTS PLOTS PLOTS
 %%%%%%%%%%%%%%%%%%%%%%%
 
+% fix plot title escape character problem
+title_str = replace(title_str,'_','');
+
 disp(sprintf(['Mean Excess Delay = %0.1f(ns)\n'...
               'RMS Delay Spread = %0.1f(ns)\n'...
               'Max Excess Delay < %0.0fdB = %0.1f(ns)\n'...
